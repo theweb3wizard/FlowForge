@@ -1,55 +1,71 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { MOCK_DEPLOYMENTS, type Deployment } from '@/lib/deployments';
+import { type Deployment } from '@/lib/deployments';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/hooks/use-toast';
 
 interface DeploymentContextType {
   deployments: Deployment[];
-  addDeployment: (deployment: Omit<Deployment, 'timestamp' | 'id'>) => void;
+  addDeployment: (deployment: Omit<Deployment, 'timestamp' | 'id'>) => Promise<void>;
+  loading: boolean;
 }
 
 const DeploymentContext = createContext<DeploymentContextType | undefined>(undefined);
 
 export const DeploymentProvider = ({ children }: { children: ReactNode }) => {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      const storedDeployments = localStorage.getItem('flowforge_deployments');
-      if (storedDeployments) {
-        setDeployments(JSON.parse(storedDeployments));
+    const fetchDeployments = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('deployments')
+        .select('*')
+        .order('timestamp', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching deployments:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error fetching data',
+          description: 'Could not load deployments from the database.',
+        });
       } else {
-        setDeployments(MOCK_DEPLOYMENTS);
+        setDeployments(data as Deployment[]);
       }
-    } catch (error) {
-      console.warn('Could not access localStorage. Deployments will not persist.');
-      setDeployments(MOCK_DEPLOYMENTS);
-    }
-  }, []);
-
-  const updateLocalStorage = (newDeployments: Deployment[]) => {
-    try {
-      localStorage.setItem('flowforge_deployments', JSON.stringify(newDeployments));
-    } catch (error) {
-      console.warn('Could not access localStorage. Deployments will not persist.');
-    }
-  }
-
-  const addDeployment = (deployment: Omit<Deployment, 'timestamp' | 'id'>) => {
-    const newDeployment: Deployment = {
-      ...deployment,
-      id: `dep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date().toISOString(),
+      setLoading(false);
     };
-    setDeployments(prev => {
-      const updatedDeployments = [newDeployment, ...prev];
-      updateLocalStorage(updatedDeployments);
-      return updatedDeployments;
-    });
+
+    fetchDeployments();
+  }, [toast]);
+
+  const addDeployment = async (deployment: Omit<Deployment, 'timestamp' | 'id'>) => {
+    const newDeploymentData = {
+      ...deployment,
+    };
+
+    const { data, error } = await supabase
+      .from('deployments')
+      .insert([newDeploymentData])
+      .select();
+
+    if (error) {
+      console.error('Error adding deployment:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error saving deployment',
+        description: 'Your deployment could not be saved to the database.',
+      });
+    } else if (data) {
+      setDeployments(prev => [data[0] as Deployment, ...prev]);
+    }
   };
 
   return (
-    <DeploymentContext.Provider value={{ deployments, addDeployment }}>
+    <DeploymentContext.Provider value={{ deployments, addDeployment, loading }}>
       {children}
     </DeploymentContext.Provider>
   );
@@ -58,7 +74,4 @@ export const DeploymentProvider = ({ children }: { children: ReactNode }) => {
 export const useDeployments = () => {
   const context = useContext(DeploymentContext);
   if (context === undefined) {
-    throw new Error('useDeployments must be used within a DeploymentProvider');
-  }
-  return context;
-};
+    throw new Error('useDeployments must be used within a Deployment

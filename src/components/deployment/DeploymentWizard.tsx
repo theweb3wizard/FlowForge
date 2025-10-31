@@ -81,12 +81,12 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
     setStep('pending');
     
     // Simulate deployment
-    setTimeout(() => {
+    setTimeout(async () => {
       const isSuccess = Math.random() > 0.1; // 90% success rate
       if (isSuccess) {
         const newAddress = `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
         setDeployedAddress(newAddress);
-        addDeployment({
+        await addDeployment({
           contractName: template.name,
           address: newAddress,
           deployer: address!,
@@ -200,21 +200,4 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
               <AlertTitle>Something went wrong</AlertTitle>
               <AlertDescription>
                 The contract could not be deployed. Please check your parameters and wallet balance, then try again.
-              </AlertDescription>
-            </Alert>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setStep('form')}>Back to Form</Button>
-            </DialogFooter>
-          </>
-        );
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md transition-all duration-300">
-        {renderContent()}
-      </DialogContent>
-    </Dialog>
-  );
-}
+              </Aler

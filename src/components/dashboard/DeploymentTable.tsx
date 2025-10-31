@@ -11,14 +11,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '../ui/button';
-import { Copy } from 'lucide-react';
+import { Copy, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '../ui/skeleton';
 
 export default function DeploymentTable() {
-  const { deployments } = useDeployments();
+  const { deployments, loading } = useDeployments();
   const { toast } = useToast();
 
   const copyToClipboard = (text: string) => {
@@ -28,6 +28,20 @@ export default function DeploymentTable() {
       description: text,
     });
   };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-4">
+          <div className="space-y-3">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!deployments.length) {
     return (
