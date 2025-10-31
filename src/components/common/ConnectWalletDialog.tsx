@@ -10,12 +10,10 @@ interface ConnectWalletDialogProps {
 }
 
 export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogProps) {
-  const { connect } = useWallet();
+  const { connect, connectors, error } = useWallet();
 
-  const handleConnect = (walletType: string) => {
-    // In a real app, you'd have specific logic for each wallet type.
-    console.log(`Connecting with ${walletType}...`);
-    connect();
+  const handleConnect = (connector: any) => {
+    connect({ connector });
     onOpenChange(false);
   };
 
@@ -29,13 +27,18 @@ export function ConnectWalletDialog({ open, onOpenChange }: ConnectWalletDialogP
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <Button variant="outline" className="justify-start text-left h-14" onClick={() => handleConnect('MetaMask')}>
-            <span className="text-lg font-medium">MetaMask</span>
-          </Button>
-          <Button variant="outline" className="justify-start text-left h-14" onClick={() => handleConnect('WalletConnect')}>
-            <span className="text-lg font-medium">WalletConnect</span>
-          </Button>
+          {connectors.filter(c => c.name !== 'Injected').map((connector) => (
+            <Button 
+              key={connector.id} 
+              variant="outline" 
+              className="justify-start text-left h-14" 
+              onClick={() => handleConnect(connector)}
+            >
+              <span className="text-lg font-medium">{connector.name}</span>
+            </Button>
+          ))}
         </div>
+        {error && <p className="text-sm text-destructive">{error.message}</p>}
       </DialogContent>
     </Dialog>
   );

@@ -1,60 +1,62 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  useAccount,
+  useConnect,
+  useDisconnect,
+  useEnsName,
+} from 'wagmi';
+import { type Connector } from 'wagmi';
 
 interface WalletContextType {
-  address: string | null;
-  connect: () => void;
+  address: `0x${string}` | undefined;
+  connectors: readonly Connector[];
+  connect: (args?: { connector: Connector }) => void;
   disconnect: () => void;
+  error: Error | null;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
-  const [address, setAddress] = useState<string | null>(null);
+  const { address } = useAccount();
+  const { connectors, connect, error } = useConnect();
+  const { disconnect } = useDisconnect();
   const { toast } = useToast();
 
-  useEffect(() => {
-    try {
-      const storedAddress = localStorage.getItem('flowforge_wallet_address');
-      if (storedAddress) {
-        setAddress(storedAddress);
+  const handleConnect: WalletContextType['connect'] = (args) => {
+    connect(args, {
+      onSuccess: (data) => {
+        toast({
+          title: "Wallet Connected",
+          description: `Address: ${data.accounts[0].slice(0, 6)}...${data.accounts[0].slice(-4)}`,
+        });
+      },
+      onError: (error) => {
+        toast({
+          variant: "destructive",
+          title: "Connection Failed",
+          description: error.message,
+        });
       }
-    } catch (error) {
-      console.warn('Could not access localStorage. Wallet state will not persist.');
-    }
-  }, []);
-  
-  const connect = () => {
-    // This is a simulation of a wallet connection
-    const pseudoAddress = `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-    setAddress(pseudoAddress);
-    try {
-      localStorage.setItem('flowforge_wallet_address', pseudoAddress);
-    } catch (error) {
-       console.warn('Could not access localStorage. Wallet state will not persist.');
-    }
-    toast({
-      title: "Wallet Connected",
-      description: `Address: ${pseudoAddress.slice(0, 6)}...${pseudoAddress.slice(-4)}`,
     });
   };
 
-  const disconnect = () => {
-    setAddress(null);
-    try {
-      localStorage.removeItem('flowforge_wallet_address');
-    } catch (error) {
-       console.warn('Could not access localStorage.');
-    }
-    toast({
-      title: "Wallet Disconnected",
+  const handleDisconnect: WalletContextType['disconnect'] = () => {
+    disconnect(undefined, {
+      onSuccess: () => {
+        toast({
+          title: "Wallet Disconnected",
+        });
+      }
     });
   };
+
 
   return (
-    <WalletContext.Provider value={{ address, connect, disconnect }}>
+    <WalletContext.Provider value={{ address, connectors, connect: handleConnect, disconnect: handleDisconnect, error }}>
       {children}
     </WalletContext.Provider>
   );

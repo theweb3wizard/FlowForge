@@ -46,7 +46,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
   const [step, setStep] = useState<Step>('form');
   const [progress, setProgress] = useState(0);
   const [deployedAddress, setDeployedAddress] = useState('');
-  const { address, connect } = useWallet();
+  const { address, connectors, connect } = useWallet();
   const { addDeployment } = useDeployments();
 
   const formSchema = generateSchema(template);
@@ -97,6 +97,12 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
       }
     }, 5000); // 5 second simulation
   }
+  
+  const handleConnect = () => {
+    if (connectors.length > 0) {
+      connect({ connector: connectors[0] });
+    }
+  };
 
   const renderContent = () => {
     switch (step) {
@@ -108,7 +114,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
               <DialogDescription>You need to connect your wallet before deploying a contract.</DialogDescription>
             </DialogHeader>
             <div className="py-8 text-center">
-              <Button onClick={connect}>Connect Wallet</Button>
+              <Button onClick={handleConnect}>Connect Wallet</Button>
             </div>
           </>
         );

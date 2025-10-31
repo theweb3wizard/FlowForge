@@ -36,7 +36,7 @@ export function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={disconnect}>
+            <DropdownMenuItem onClick={() => disconnect()}>
               <LogOut className="mr-2 h-4 w-4" />
               <span>Disconnect</span>
             </DropdownMenuItem>

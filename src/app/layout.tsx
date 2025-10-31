@@ -5,8 +5,8 @@ import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
-import { WalletProvider } from '@/contexts/WalletContext';
 import { DeploymentProvider } from '@/contexts/DeploymentContext';
+import { Web3Provider } from '@/components/common/Web3Provider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -37,7 +37,7 @@ export default function RootLayout({
           spaceGrotesk.variable
         )}
       >
-        <WalletProvider>
+        <Web3Provider>
           <DeploymentProvider>
             <div vaul-drawer-wrapper="">
               <div className="relative flex min-h-screen flex-col bg-background">
@@ -48,7 +48,7 @@ export default function RootLayout({
             </div>
             <Toaster />
           </DeploymentProvider>
-        </WalletProvider>
+        </Web3Provider>
       </body>
     </html>
   );
