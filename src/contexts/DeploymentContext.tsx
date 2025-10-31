@@ -74,4 +74,7 @@ export const DeploymentProvider = ({ children }: { children: ReactNode }) => {
 export const useDeployments = () => {
   const context = useContext(DeploymentContext);
   if (context === undefined) {
-    throw new Error('useDeployments must be used within a Deployment
+    throw new Error('useDeployments must be used within a DeploymentProvider');
+  }
+  return context;
+};

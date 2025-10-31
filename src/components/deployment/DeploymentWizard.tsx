@@ -200,4 +200,21 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
               <AlertTitle>Something went wrong</AlertTitle>
               <AlertDescription>
                 The contract could not be deployed. Please check your parameters and wallet balance, then try again.
-              </Aler
+              </AlertDescription>
+            </Alert>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStep('form')}>Try Again</Button>
+            </DialogFooter>
+          </>
+        );
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        {renderContent()}
+      </DialogContent>
+    </Dialog>
+  );
+}
