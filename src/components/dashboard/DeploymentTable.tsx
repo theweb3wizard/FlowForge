@@ -1,0 +1,104 @@
+"use client";
+
+import React from 'react';
+import { useDeployments } from '@/contexts/DeploymentContext';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { formatDistanceToNow } from 'date-fns';
+import { Button } from '../ui/button';
+import { Copy } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+export default function DeploymentTable() {
+  const { deployments } = useDeployments();
+  const { toast } = useToast();
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: 'Copied to clipboard!',
+      description: text,
+    });
+  };
+
+  if (!deployments.length) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center text-muted-foreground">
+          No deployments yet.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Contract</TableHead>
+                <TableHead>Address</TableHead>
+                <TableHead>Deployer</TableHead>
+                <TableHead className="text-right">Deployed</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {deployments.map((dep) => (
+                <TableRow key={dep.id}>
+                  <TableCell className="font-medium">{dep.contractName}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-muted-foreground">{`${dep.address.slice(0, 10)}...${dep.address.slice(-8)}`}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(dep.address)}>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-muted-foreground">{`${dep.deployer.slice(0, 10)}...${dep.deployer.slice(-8)}`}</span>
+                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(dep.deployer)}>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {formatDistanceToNow(new Date(dep.timestamp), { addSuffix: true })}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="md:hidden">
+          <div className="space-y-4 p-4">
+            {deployments.map((dep) => (
+              <Card key={dep.id}>
+                <CardContent className="p-4 space-y-2">
+                  <p className="font-semibold">{dep.contractName}</p>
+                  <div className="text-sm text-muted-foreground">
+                    <p className="font-mono break-all">{dep.address}</p>
+                    <p className="font-mono break-all mt-1">{dep.deployer}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground pt-2">
+                    {formatDistanceToNow(new Date(dep.timestamp), { addSuffix: true })}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
