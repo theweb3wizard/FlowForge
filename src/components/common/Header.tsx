@@ -35,7 +35,7 @@ export function Header() {
       // Render a placeholder or a disabled button on the server and initial client render.
       return (
         <Button
-          disabled
+          disabled={true}
           className="bg-primary hover:bg-primary/90 hover:shadow-glow-accent transition-shadow duration-300"
         >
           <Wallet className="mr-2 h-4 w-4" />
