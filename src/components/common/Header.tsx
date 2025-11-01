@@ -24,18 +24,18 @@ const NavLinks = ({ className }: { className?: string }) => (
 export function Header() {
   const [isWalletDialogOpen, setWalletDialogOpen] = useState(false);
   const { address, disconnect } = useWallet();
-  const [isClient, setIsClient] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
+    setHasMounted(true);
   }, []);
 
   const WalletButton = () => {
-    if (!isClient) {
-      // Render a placeholder or a disabled button on the server and initial client render.
+    if (!hasMounted) {
+      // Render a consistent, disabled placeholder on the server and initial client render.
       return (
         <Button
-          disabled={true}
+          disabled
           className="bg-primary hover:bg-primary/90 hover:shadow-glow-accent transition-shadow duration-300"
         >
           <Wallet className="mr-2 h-4 w-4" />
