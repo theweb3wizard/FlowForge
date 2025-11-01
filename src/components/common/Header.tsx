@@ -32,6 +32,7 @@ export function Header() {
 
   const WalletButton = () => {
     if (!isClient) {
+      // Render a placeholder or a disabled button on the server and initial client render.
       return (
         <Button
           disabled
