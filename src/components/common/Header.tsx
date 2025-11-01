@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
@@ -24,8 +24,25 @@ const NavLinks = ({ className }: { className?: string }) => (
 export function Header() {
   const [isWalletDialogOpen, setWalletDialogOpen] = useState(false);
   const { address, disconnect } = useWallet();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const WalletButton = () => {
+    if (!isClient) {
+      return (
+        <Button
+          disabled
+          className="bg-primary hover:bg-primary/90 hover:shadow-glow-accent transition-shadow duration-300"
+        >
+          <Wallet className="mr-2 h-4 w-4" />
+          Connect Wallet
+        </Button>
+      );
+    }
+    
     if (address) {
       return (
         <DropdownMenu>
