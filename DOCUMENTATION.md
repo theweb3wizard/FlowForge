@@ -1,0 +1,160 @@
+# FlowForge — Wave 1 Technical Documentation
+
+**Version:** 1.0 (Wave 1 Submission)
+**Author:** The Web3 Wizard (Khalid)
+
+---
+
+## 1. Overview
+
+This document provides a technical overview of the FlowForge prototype as submitted for Wave 1 of the BlockDAG Buildathon. The current implementation is a **functional front-end scaffold** that demonstrates the core user experience and validates the project's architecture.
+
+The primary goal of this phase was to establish a polished and intuitive user interface, integrate essential wallet functionality, and set up a data persistence layer. This prepares a solid foundation for the integration of real smart contract deployment logic in Wave 2.
+
+### Current Capabilities
+
+- **Wallet Connection:** Users can connect and disconnect an EVM-compatible wallet (MetaMask) to the application.
+- **Template Discovery:** A visually-driven browser showcases pre-defined smart contract templates.
+- **Simulated Deployment:** A multi-step wizard guides users through parameter input for a selected template. The deployment itself is a mock process that mimics the asynchronous nature of a blockchain transaction.
+- **Deployment Registry:** Upon simulated success, a record of the deployment (including a mock contract address and deployer address) is saved to a Supabase database.
+- **Public Dashboard:** A dedicated dashboard page fetches and displays all recorded deployments from Supabase, demonstrating data persistence.
+
+---
+
+## 2. Architecture & Core Modules
+
+FlowForge is built with a decoupled architecture, ensuring that the frontend UI, business logic, and data layer are separated for scalability and maintainability.
+
+### High-Level Data Flow
+
+```
+[User]
+   |
+   +--> [Frontend: Next.js + wagmi] -- (Connects Wallet)
+   |
+   +--> [Template Browser] -- (Selects "ERC-20")
+   |
+   +--> [Deployment Wizard UI] -- (Inputs "MyToken", "MTK")
+   |
+   +--> [Mock Deployment Service] -- (Simulates Tx, generates mock address)
+   |
+   +--> [Supabase Client] -- (Saves deployment record to database)
+   |
+   +--> [Dashboard] -- (Fetches and displays all records from Supabase)
+```
+
+This flow validates the end-to-end user journey without requiring on-chain interaction, making it perfect for rapid prototyping and UX testing.
+
+### Key Module Breakdown
+
+| Module                  | File Location(s)                                    | Description                                                                                                      | Status       |
+| ----------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Wallet Manager**      | `src/contexts/WalletContext.tsx`, `src/lib/wagmi.ts`  | Manages wallet state using `wagmi` hooks (`useAccount`, `useConnect`). Provides a clean context for the entire app.  | ✅ Completed  |
+| **Template Library**    | `src/components/templates/`, `src/lib/contracts.ts` | Renders `TemplateCard` components based on a static array of contract metadata.                                    | ✅ Completed  |
+| **Deployment Wizard**   | `src/components/deployment/DeploymentWizard.tsx`    | A stateful dialog component that handles form input (`react-hook-form`), validation, and the multi-step UI flow.        | 🟡 Mocked     |
+| **Supabase Integration**| `src/contexts/DeploymentContext.tsx`, `src/lib/supabase.ts` | Initializes the Supabase client and provides a React context for fetching and inserting deployment data.         | ✅ Completed  |
+| **Dashboard Display**   | `src/app/dashboard/page.tsx`                          | Fetches data from `DeploymentContext` and renders it in a responsive table, with skeleton loaders for UX.        | ✅ Completed  |
+
+---
+
+## 3. Setup and Local Development
+
+Follow these steps to run the FlowForge prototype on your local machine.
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/theweb3wizard/FlowForge.git
+cd FlowForge
+```
+
+### Step 2: Install Dependencies
+
+```bash
+npm install
+```
+
+### Step 3: Configure Environment Variables
+
+The project requires a `.env.local` file at the root to store your Supabase credentials.
+
+1.  Create the file: `cp .env.local.example .env.local`
+2.  Edit `.env.local` and add your project-specific keys:
+
+```bash
+# Get these from your Supabase Project -> Settings -> API
+NEXT_PUBLIC_SUPABASE_URL="https://<your-project-ref>.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-public-anon-key"
+```
+
+**Note:** For Wave 1, the `NEXT_PUBLIC_BLOCKDAG_RPC` variable is not yet used but is included for future compatibility.
+
+### Step 4: Set Up Supabase Table
+
+For the dashboard to function, you need to create the `deployments` table in your Supabase project.
+
+1.  Go to the **SQL Editor** in your Supabase dashboard.
+2.  Run the following SQL query:
+
+```sql
+-- Create the 'deployments' table
+CREATE TABLE deployments (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  "contractName" TEXT NOT NULL,
+  address TEXT NOT NULL,
+  deployer TEXT NOT NULL,
+  "timestamp" TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE deployments ENABLE ROW LEVEL SECURITY;
+
+-- Allow public read access for the dashboard
+CREATE POLICY "Public read access" ON deployments
+  FOR SELECT
+  USING (true);
+
+-- Allow anyone to insert (for Wave 1 simplicity)
+CREATE POLICY "Allow anonymous insert" ON deployments
+  FOR INSERT
+  WITH CHECK (true);
+```
+
+### Step 5: Run the Application
+
+```bash
+npm run dev
+```
+The application will be available at `http://localhost:9002`.
+
+---
+
+## 4. Frequently Asked Questions (FAQ)
+
+**Q1: Why use Supabase instead of fetching deployment history directly from the blockchain?**
+
+**A:** This is a strategic choice for user experience. While on-chain data is the source of truth, querying it directly can be slow and requires complex indexing for efficient filtering. Supabase acts as a fast, reliable "cache" or registry for deployments made through the platform. This allows us to provide a snappy dashboard experience. In Wave 3, we plan to supplement this with direct links to the BlockTag Explorer for on-chain verification.
+
+**Q2: When will real smart contract deployments go live?**
+
+**A:** Real on-chain deployment is the **top priority for Wave 2**. Our current architecture was designed specifically to make this a "plug-and-play" integration. We will replace the mock deployment service with a module that uses `viem` to interact with the BlockDAG RPC, create the contract transaction, and monitor it until confirmation.
+
+**Q3: How are the smart contract templates secured?**
+
+**A:** Security is our highest priority. The "pre-audited" aspect of our templates is central to our value proposition. While the contracts are not yet integrated, our plan for Wave 2 includes sourcing templates from reputable, open-source providers like OpenZeppelin and running them through internal and, eventually, third-party audits before they are made available in FlowForge.
+
+---
+
+## 5. Next Steps: The Road to Wave 2
+
+With the foundational scaffold complete, our focus now shifts entirely to blockchain integration.
+
+**Key Priorities for Wave 2:**
+
+1.  **RPC Integration:** Configure `wagmi` and `viem` to connect to the BlockDAG testnet RPC.
+2.  **Implement `useDeployContract` Hook:** Create a custom hook that encapsulates all contract deployment logic, including ABI handling, gas estimation, and transaction signing.
+3.  **Deploy & Verify First Template:** Deploy our first template (e.g., ERC-20) to the BlockDAG testnet and get it verified on the BlockTag Explorer. This will serve as our end-to-end integration test.
+4.  **Connect Real Logic:** Replace the `setTimeout` mock in `DeploymentWizard.tsx` with our new deployment hook.
+5.  **Add Explorer Links:** Enhance the UI with dynamic links to the BlockTag Explorer for deployed contracts and transactions.
+
+We are confident in our ability to execute these next steps quickly and deliver a fully functional, on-chain product in the next phase of the buildathon.
