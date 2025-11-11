@@ -21,6 +21,11 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: 'FlowForge',
   description: 'Deploy smart contracts to the BlockDAG testnet without writing code.',
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({

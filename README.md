@@ -1,9 +1,8 @@
 # FlowForge 🌊 — No-Code DeFi for the BlockDAG Testnet
 
-<p align="center">
-  <strong>Deploy pre-audited, production-ready smart contracts on BlockDAG in minutes. No Solidity required.</strong>
-</p>
+**Visit the live FlowForge site:** **[https://flowforgehq.netlify.app/](https://flowforgehq.netlify.app/)**
 
+(Production preview hosted on Netlify.)
 
 ## The Vision: Democratizing DeFi on BlockDAG
 
