@@ -26,5 +26,5 @@ export const config = createConfig({
     [sepolia.id]: http(),
     [blockdagTestnet.id]: http(),
   },
-  ssr: true, 
+  ssr: false, 
 });
