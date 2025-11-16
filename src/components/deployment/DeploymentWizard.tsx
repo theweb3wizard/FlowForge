@@ -16,6 +16,10 @@ import { useDeployments } from '@/contexts/DeploymentContext';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useAccount, useWalletClient, usePublicClient } from 'wagmi';
+import { erc20Bytecode, erc20Abi } from '@/lib/abis/erc20';
+import { parseEther } from 'viem';
+
 
 type Step = 'form' | 'pending' | 'success' | 'error' | 'no_wallet';
 
@@ -45,9 +49,15 @@ const generateSchema = (template: ContractTemplate) => {
 export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWizardProps) {
   const [step, setStep] = useState<Step>('form');
   const [progress, setProgress] = useState(0);
+  const [txHash, setTxHash] = useState<string | null>(null);
   const [deployedAddress, setDeployedAddress] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
   const { address, connectors, connect } = useWallet();
   const { addDeployment } = useDeployments();
+  const { chain } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
 
   const formSchema = generateSchema(template);
   const form = useForm<z.infer<typeof formSchema>>({
@@ -65,26 +75,46 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
       form.reset();
       setProgress(0);
       setDeployedAddress('');
+      setTxHash(null);
+      setErrorMessage('');
     }
   }, [open, address, form, template]);
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (step === 'pending' && progress < 100) {
-      timer = setTimeout(() => setProgress(prev => Math.min(prev + Math.random() * 20, 100)), 500);
-    }
-    return () => clearTimeout(timer);
-  }, [step, progress]);
-
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!walletClient || !publicClient || !chain) {
+      setErrorMessage('Wallet client not available. Please ensure your wallet is connected.');
+      setStep('error');
+      return;
+    }
+
     setStep('pending');
-    
-    // Simulate deployment
-    setTimeout(async () => {
-      const isSuccess = Math.random() > 0.1; // 90% success rate
-      if (isSuccess) {
-        const newAddress = `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
+    setProgress(10);
+
+    try {
+      let args: any[] = [];
+      if (template.id === 'erc20') {
+        // Specifically for ERC20, convert supply to the right format (wei)
+        args = [values.tokenName, values.tokenSymbol, parseEther(values.initialSupply)];
+      } else {
+        // Fallback for other potential contracts
+        args = template.parameters.map(p => values[p.name]);
+      }
+      
+      setProgress(25);
+      const hash = await walletClient.deployContract({
+        abi: erc20Abi,
+        bytecode: erc20Bytecode,
+        args: args,
+      });
+      setTxHash(hash);
+      setProgress(50);
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      setProgress(100);
+
+      if (receipt.status === 'success' && receipt.contractAddress) {
+        const newAddress = receipt.contractAddress;
         setDeployedAddress(newAddress);
         await addDeployment({
           contractName: template.name,
@@ -93,9 +123,14 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
         });
         setStep('success');
       } else {
-        setStep('error');
+        throw new Error('Transaction failed or contract address not found.');
       }
-    }, 5000); // 5 second simulation
+    } catch (e: any) {
+      console.error(e);
+      const message = e.shortMessage || e.message || 'An unknown error occurred.';
+      setErrorMessage(message);
+      setStep('error');
+    }
   }
   
   const handleConnect = () => {
@@ -103,6 +138,8 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
       connect({ connector: connectors[0] });
     }
   };
+
+  const explorerUrl = chain?.blockExplorers?.default.url;
 
   const renderContent = () => {
     switch (step) {
@@ -144,7 +181,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
                   />
                 ))}
                 <DialogFooter>
-                  <Button type="submit">Deploy Contract</Button>
+                  <Button type="submit" disabled={!walletClient}>Deploy Contract</Button>
                 </DialogFooter>
               </form>
             </Form>
@@ -160,7 +197,16 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
             <div className="flex flex-col items-center justify-center space-y-4 py-8">
               <Loader2 className="h-16 w-16 animate-spin text-primary" />
               <Progress value={progress} className="w-full" />
-              <p className="text-sm text-muted-foreground">{Math.round(progress)}% complete</p>
+              <p className="text-sm text-muted-foreground">
+                {progress < 50 ? 'Waiting for wallet confirmation...' : 'Deploying contract...'}
+              </p>
+              {txHash && explorerUrl && (
+                <Button variant="link" asChild>
+                  <a href={`${explorerUrl}/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+                    View Transaction on Explorer
+                  </a>
+                </Button>
+              )}
             </div>
           </>
         );
@@ -179,6 +225,13 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
                <div className="text-sm bg-muted rounded-md p-3 font-mono break-all">
                   <span className="font-semibold text-muted-foreground">Address:</span> {deployedAddress}
                </div>
+               {explorerUrl && (
+                 <Button variant="outline" asChild className="w-full">
+                    <a href={`${explorerUrl}/address/${deployedAddress}`} target="_blank" rel="noopener noreferrer">
+                      View on Explorer
+                    </a>
+                 </Button>
+               )}
                <Button asChild className="w-full">
                 <Link href="/dashboard" onClick={() => onOpenChange(false)}>
                   View on Dashboard
@@ -198,8 +251,8 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
             </DialogHeader>
             <Alert variant="destructive" className="my-4">
               <AlertTitle>Something went wrong</AlertTitle>
-              <AlertDescription>
-                The contract could not be deployed. Please check your parameters and wallet balance, then try again.
+              <AlertDescription className="break-words">
+                {errorMessage || 'The contract could not be deployed. Please check your wallet and try again.'}
               </AlertDescription>
             </Alert>
             <DialogFooter>
