@@ -34,7 +34,7 @@ const generateSchema = (template: ContractTemplate) => {
   template.parameters.forEach(param => {
     switch (param.type) {
       case 'number':
-        shape[param.name] = z.string().min(1, 'Required').regex(/^\d+$/, 'Must be a number');
+        shape[param.name] = z.string().min(1, 'Required').regex(/^\d+(\.\d+)?$/, 'Must be a number');
         break;
       case 'address':
         shape[param.name] = z.string().min(1, 'Required').regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid address');
@@ -48,7 +48,7 @@ const generateSchema = (template: ContractTemplate) => {
 
 export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWizardProps) {
   const [step, setStep] = useState<Step>('form');
-  const [progress, setProgress] = useState(0);
+  const [pendingStep, setPendingStep] = useState<'submitting' | 'confirming'>('submitting');
   const [txHash, setTxHash] = useState<string | null>(null);
   const [deployedAddress, setDeployedAddress] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -73,10 +73,10 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
         setStep('form');
       }
       form.reset();
-      setProgress(0);
       setDeployedAddress('');
       setTxHash(null);
       setErrorMessage('');
+      setPendingStep('submitting');
     }
   }, [open, address, form, template]);
 
@@ -89,29 +89,29 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
     }
 
     setStep('pending');
-    setProgress(10);
+    setPendingStep('submitting');
 
     try {
       let args: any[] = [];
       if (template.id === 'erc20') {
-        // Specifically for ERC20, convert supply to the right format (wei)
         args = [values.tokenName, values.tokenSymbol, parseEther(values.initialSupply)];
       } else {
-        // Fallback for other potential contracts
         args = template.parameters.map(p => values[p.name]);
       }
       
-      setProgress(25);
       const hash = await walletClient.deployContract({
         abi: erc20Abi,
         bytecode: erc20Bytecode,
         args: args,
       });
       setTxHash(hash);
-      setProgress(50);
+      setPendingStep('confirming');
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      setProgress(100);
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash,
+        timeout: 300_000, // 5 minutes
+        pollingInterval: 5_000, // 5 seconds
+      });
 
       if (receipt.status === 'success' && receipt.contractAddress) {
         const newAddress = receipt.contractAddress;
@@ -127,7 +127,10 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
       }
     } catch (e: any) {
       console.error(e);
-      const message = e.shortMessage || e.message || 'An unknown error occurred.';
+      let message = e.shortMessage || e.message || 'An unknown error occurred.';
+      if (e.name === 'TimeoutError') {
+        message = `Transaction confirmation timed out after 5 minutes. It may still succeed. Please check the explorer.`;
+      }
       setErrorMessage(message);
       setStep('error');
     }
@@ -192,13 +195,18 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
           <>
             <DialogHeader>
               <DialogTitle>Deployment in Progress</DialogTitle>
-              <DialogDescription>Your contract is being deployed to the BlockDAG testnet. Please wait...</DialogDescription>
+              <DialogDescription>
+                {pendingStep === 'submitting'
+                  ? 'Please confirm the transaction in your wallet.'
+                  : 'Your contract is being deployed to the BlockDAG testnet.'}
+              </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col items-center justify-center space-y-4 py-8">
               <Loader2 className="h-16 w-16 animate-spin text-primary" />
-              <Progress value={progress} className="w-full" />
-              <p className="text-sm text-muted-foreground">
-                {progress < 50 ? 'Waiting for wallet confirmation...' : 'Deploying contract...'}
+              <p className="text-sm text-muted-foreground text-center">
+                {pendingStep === 'submitting'
+                  ? 'Waiting for wallet confirmation...'
+                  : 'Waiting for network confirmation... (this may take 2-5 minutes)'}
               </p>
               {txHash && explorerUrl && (
                 <Button variant="link" asChild>
@@ -255,6 +263,13 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
                 {errorMessage || 'The contract could not be deployed. Please check your wallet and try again.'}
               </AlertDescription>
             </Alert>
+            {txHash && explorerUrl && (
+              <Button variant="link" asChild>
+                <a href={`${explorerUrl}/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+                  View transaction details on explorer
+                </a>
+              </Button>
+            )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setStep('form')}>Try Again</Button>
             </DialogFooter>
