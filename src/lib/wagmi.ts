@@ -1,3 +1,4 @@
+
 import { http, createConfig, type Chain } from 'wagmi';
 import { mainnet, sepolia } from 'wagmi/chains';
 import { injected } from 'wagmi/connectors';
@@ -7,8 +8,9 @@ const blockdagTestnet = {
   name: 'BlockDAG Testnet',
   nativeCurrency: { name: 'tBDAG', symbol: 'tBDAG', decimals: 18 },
   rpcUrls: {
-    default: { http: [process.env.NEXT_PUBLIC_BLOCKDAG_RPC_URL || ''] },
-    public: { http: [process.env.NEXT_PUBLIC_BLOCKDAG_RPC_URL || ''] },
+    // Use the proxied URL for client-side requests to avoid CORS issues
+    default: { http: ['/api/rpc'] },
+    public: { http: ['/api/rpc'] },
   },
   blockExplorers: {
     default: { name: 'BlockDAG Explorer', url: process.env.NEXT_PUBLIC_BLOCKDAG_EXPLORER_URL || '' },
@@ -24,6 +26,7 @@ export const config = createConfig({
   transports: {
     [mainnet.id]: http(),
     [sepolia.id]: http(),
+    // The transport now points to our local proxy
     [blockdagTestnet.id]: http(),
   },
   ssr: false, 
