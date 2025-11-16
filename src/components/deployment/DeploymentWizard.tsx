@@ -55,7 +55,6 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
 
   const { address, connectors, connect } = useWallet();
   const { addDeployment } = useDeployments();
-  const { chain }_ = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
