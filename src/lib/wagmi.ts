@@ -27,7 +27,7 @@ export const config = createConfig({
     [mainnet.id]: http(),
     [sepolia.id]: http(),
     // The transport now points to our local proxy
-    [blockdagTestnet.id]: http(),
+    [blockdagTestnet.id]: http('/api/rpc'),
   },
   ssr: false, 
 });

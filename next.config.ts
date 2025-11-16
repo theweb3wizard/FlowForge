@@ -10,8 +10,8 @@ const nextConfig: NextConfig = {
     }
     return [
       {
-        source: '/api/rpc/:path*',
-        destination: `${blockdagRpcUrl}/:path*`,
+        source: '/api/rpc',
+        destination: blockdagRpcUrl,
       },
     ];
   },
