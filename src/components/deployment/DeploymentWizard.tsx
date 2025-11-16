@@ -55,7 +55,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
 
   const { address, connectors, connect } = useWallet();
   const { addDeployment } = useDeployments();
-  const { chain } = useAccount();
+  const { chain }_ = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
@@ -82,7 +82,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!walletClient || !publicClient || !chain) {
+    if (!walletClient || !publicClient) {
       setErrorMessage('Wallet client not available. Please ensure your wallet is connected.');
       setStep('error');
       return;
@@ -103,14 +103,17 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
         abi: erc20Abi,
         bytecode: erc20Bytecode,
         args: args,
+        gas: 5000000n, // Manual gas limit
+        gasPrice: 1000000000n, // 1 gwei
       });
+
       setTxHash(hash);
       setPendingStep('confirming');
 
       const receipt = await publicClient.waitForTransactionReceipt({
         hash,
-        timeout: 300_000, // 5 minutes
-        pollingInterval: 5_000, // 5 seconds
+        timeout: 300_000,
+        pollingInterval: 5_000,
       });
 
       if (receipt.status === 'success' && receipt.contractAddress) {
@@ -142,7 +145,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
     }
   };
 
-  const explorerUrl = chain?.blockExplorers?.default.url;
+  const explorerUrl = process.env.NEXT_PUBLIC_BLOCKDAG_EXPLORER_URL;
 
   const renderContent = () => {
     switch (step) {
