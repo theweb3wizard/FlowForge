@@ -106,7 +106,8 @@ CREATE TABLE deployments (
   "contractName" TEXT NOT NULL,
   address TEXT NOT NULL,
   deployer TEXT NOT NULL,
-  "timestamp" TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  "timestamp" TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  "transactionHash" TEXT
 );
 
 -- Enable Row Level Security (RLS)
