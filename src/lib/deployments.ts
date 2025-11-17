@@ -4,4 +4,5 @@ export type Deployment = {
   address: string;
   deployer: string;
   timestamp: string;
+  transactionHash?: string;
 };

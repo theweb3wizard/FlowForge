@@ -13,13 +13,14 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '../ui/button';
-import { Copy, Loader2 } from 'lucide-react';
+import { Copy, ExternalLink, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 
 export default function DeploymentTable() {
   const { deployments, loading } = useDeployments();
   const { toast } = useToast();
+  const explorerUrl = process.env.NEXT_PUBLIC_BLOCKDAG_EXPLORER_URL;
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -63,6 +64,7 @@ export default function DeploymentTable() {
                 <TableHead>Contract</TableHead>
                 <TableHead>Address</TableHead>
                 <TableHead>Deployer</TableHead>
+                <TableHead>Transaction</TableHead>
                 <TableHead className="text-right">Deployed</TableHead>
               </TableRow>
             </TableHeader>
@@ -86,6 +88,15 @@ export default function DeploymentTable() {
                       </Button>
                     </div>
                   </TableCell>
+                  <TableCell>
+                    {explorerUrl && dep.transactionHash && (
+                       <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
+                         <a href={`${explorerUrl}/tx/${dep.transactionHash}`} target="_blank" rel="noopener noreferrer">
+                           <ExternalLink className="h-4 w-4" />
+                         </a>
+                       </Button>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right text-muted-foreground">
                     {formatDistanceToNow(new Date(dep.timestamp), { addSuffix: true })}
                   </TableCell>
@@ -99,7 +110,16 @@ export default function DeploymentTable() {
             {deployments.map((dep) => (
               <Card key={dep.id}>
                 <CardContent className="p-4 space-y-2">
-                  <p className="font-semibold">{dep.contractName}</p>
+                  <div className="flex justify-between items-start">
+                    <p className="font-semibold">{dep.contractName}</p>
+                    {explorerUrl && dep.transactionHash && (
+                       <Button variant="ghost" size="icon" className="h-8 w-8 -mt-2 -mr-2" asChild>
+                         <a href={`${explorerUrl}/tx/${dep.transactionHash}`} target="_blank" rel="noopener noreferrer">
+                           <ExternalLink className="h-4 w-4" />
+                         </a>
+                       </Button>
+                    )}
+                  </div>
                   <div className="text-sm text-muted-foreground">
                     <p className="font-mono break-all">{dep.address}</p>
                     <p className="font-mono break-all mt-1">{dep.deployer}</p>

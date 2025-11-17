@@ -16,7 +16,7 @@ import { useDeployments } from '@/contexts/DeploymentContext';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useAccount, useWalletClient, usePublicClient } from 'wagmi';
+import { useWalletClient, usePublicClient } from 'wagmi';
 import { erc20Bytecode, erc20Abi } from '@/lib/abis/erc20';
 import { parseEther } from 'viem';
 
@@ -122,6 +122,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
           contractName: template.name,
           address: newAddress,
           deployer: address!,
+          transactionHash: hash,
         });
         setStep('success');
       } else {
@@ -235,9 +236,9 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
                <div className="text-sm bg-muted rounded-md p-3 font-mono break-all">
                   <span className="font-semibold text-muted-foreground">Address:</span> {deployedAddress}
                </div>
-               {explorerUrl && (
+               {explorerUrl && txHash && (
                  <Button variant="outline" asChild className="w-full">
-                    <a href={`${explorerUrl}/address/${deployedAddress}`} target="_blank" rel="noopener noreferrer">
+                    <a href={`${explorerUrl}/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
                       View on Explorer
                     </a>
                  </Button>
