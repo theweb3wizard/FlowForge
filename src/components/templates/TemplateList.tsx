@@ -15,7 +15,11 @@ export default function TemplateList() {
           <TemplateCard
             key={template.id}
             template={template}
-            onSelect={() => setSelectedTemplate(template)}
+            onSelect={() => {
+              if (template.status === 'live') {
+                setSelectedTemplate(template);
+              }
+            }}
           />
         ))}
       </div>

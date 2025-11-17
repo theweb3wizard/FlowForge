@@ -13,6 +13,7 @@ export type ContractTemplate = {
   description: string;
   icon: string; // lucide-react icon name
   parameters: Parameter[];
+  status: 'live' | 'soon';
 };
 
 export const CONTRACT_TEMPLATES: ContractTemplate[] = [
@@ -26,6 +27,7 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
       { name: 'tokenSymbol', label: 'Token Symbol', type: 'text', placeholder: 'e.g., MAT' },
       { name: 'initialSupply', label: 'Initial Supply', type: 'number', placeholder: 'e.g., 1000000' },
     ],
+    status: 'live',
   },
   {
     id: 'erc721',
@@ -36,6 +38,7 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
       { name: 'collectionName', label: 'Collection Name', type: 'text', placeholder: 'e.g., Cool Cats' },
       { name: 'collectionSymbol', label: 'Collection Symbol', type: 'text', placeholder: 'e.g., CATS' },
     ],
+    status: 'soon',
   },
   {
     id: 'vesting',
@@ -47,6 +50,7 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
       { name: 'cliffDuration', label: 'Cliff (in days)', type: 'number', placeholder: 'e.g., 365' },
       { name: 'vestingDuration', label: 'Total Vesting (in days)', type: 'number', placeholder: 'e.g., 1460' },
     ],
+    status: 'soon',
   },
   {
     id: 'governance',
@@ -58,6 +62,7 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
       { name: 'votingToken', label: 'Voting Token Address', type: 'address', placeholder: '0x... (Your ERC-20 token)' },
       { name: 'quorumPercentage', label: 'Quorum %', type: 'number', placeholder: 'e.g., 4' },
     ],
+    status: 'soon',
   },
   {
     id: 'multisig',
@@ -68,6 +73,7 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
       { name: 'owners', label: 'Owner Addresses (comma-separated)', type: 'text', placeholder: '0x..., 0x..., 0x...' },
       { name: 'requiredSignatures', label: 'Required Signatures', type: 'number', placeholder: 'e.g., 2' },
     ],
+    status: 'soon',
   },
   {
     id: 'simple-marketplace',
@@ -78,5 +84,6 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
       { name: 'marketplaceName', label: 'Marketplace Name', type: 'text', placeholder: 'e.g., The Grand Bazaar' },
       { name: 'listingFee', label: 'Listing Fee (%)', type: 'number', placeholder: 'e.g., 2.5' },
     ],
+    status: 'soon',
   },
 ];

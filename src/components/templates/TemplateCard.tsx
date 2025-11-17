@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { type ContractTemplate } from '@/lib/contracts';
 import { cn } from '@/lib/utils';
 import { ArrowRight } from 'lucide-react';
+import { Badge } from '../ui/badge';
 
 interface TemplateCardProps {
   template: ContractTemplate;
@@ -14,6 +15,7 @@ interface TemplateCardProps {
 
 export function TemplateCard({ template, onSelect, className }: TemplateCardProps) {
   const Icon = LucideIcons[template.icon as keyof typeof LucideIcons] || LucideIcons.FileCode;
+  const isDisabled = template.status === 'soon';
 
   return (
     <Card className={cn("flex flex-col h-full transition-transform transform hover:-translate-y-1 hover:shadow-lg", className)}>
@@ -27,14 +29,17 @@ export function TemplateCard({ template, onSelect, className }: TemplateCardProp
             {template.description}
           </CardDescription>
         </div>
+        {isDisabled && <Badge variant="outline">Coming Soon</Badge>}
       </CardHeader>
       <CardContent className="flex-1" />
       <CardFooter>
         <Button 
           onClick={onSelect} 
-          className="w-full bg-accent hover:bg-accent/90 text-accent-foreground hover:shadow-glow-accent transition-shadow duration-300"
+          disabled={isDisabled}
+          className="w-full bg-accent hover:bg-accent/90 text-accent-foreground hover:shadow-glow-accent transition-shadow duration-300 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
         >
-          Deploy Now <ArrowRight className="ml-2 h-4 w-4" />
+          {isDisabled ? 'Coming Soon' : 'Deploy Now'}
+          {!isDisabled && <ArrowRight className="ml-2 h-4 w-4" />}
         </Button>
       </CardFooter>
     </Card>
