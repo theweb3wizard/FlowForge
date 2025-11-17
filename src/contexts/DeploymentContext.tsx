@@ -43,8 +43,12 @@ export const DeploymentProvider = ({ children }: { children: ReactNode }) => {
   }, [toast]);
 
   const addDeployment = async (deployment: Omit<Deployment, 'timestamp' | 'id'>) => {
+    // Supabase requires quoted column names if they were created with quotes
     const newDeploymentData = {
-      ...deployment,
+      "contractName": deployment.contractName,
+      address: deployment.address,
+      deployer: deployment.deployer,
+      transactionHash: deployment.transactionHash,
     };
 
     const { data, error } = await supabase
