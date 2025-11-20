@@ -20,8 +20,14 @@ import { useWalletClient, usePublicClient } from 'wagmi';
 import { erc20Bytecode, erc20Abi } from '@/lib/abis/erc20';
 import { parseEther } from 'viem';
 
-
 type Step = 'form' | 'pending' | 'success' | 'error' | 'no_wallet';
+
+const PENDING_MESSAGES: { [key: number]: string } = {
+  0: "Transaction Submitted...",
+  15: "Propagating to BlockDAG Network...",
+  50: "Awaiting Final Confirmation...",
+  95: "Finalizing...",
+};
 
 interface DeploymentWizardProps {
   template: ContractTemplate;
@@ -48,10 +54,11 @@ const generateSchema = (template: ContractTemplate) => {
 
 export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWizardProps) {
   const [step, setStep] = useState<Step>('form');
-  const [pendingStep, setPendingStep] = useState<'submitting' | 'confirming'>('submitting');
   const [txHash, setTxHash] = useState<string | null>(null);
   const [deployedAddress, setDeployedAddress] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [pendingMessage, setPendingMessage] = useState(PENDING_MESSAGES[0]);
 
   const { address, connectors, connect } = useWallet();
   const { addDeployment } = useDeployments();
@@ -75,10 +82,38 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
       setDeployedAddress('');
       setTxHash(null);
       setErrorMessage('');
-      setPendingStep('submitting');
+      setProgress(0);
+      setPendingMessage(PENDING_MESSAGES[0]);
     }
   }, [open, address, form, template]);
 
+  // Effect for progress bar animation
+  useEffect(() => {
+    if (step !== 'pending' || !txHash) {
+      setProgress(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        const newProgress = prev + 1;
+        if (newProgress >= 100) {
+          clearInterval(interval);
+          return 99; // Cap at 99 until success
+        }
+
+        const messageKey = Object.keys(PENDING_MESSAGES)
+          .map(Number)
+          .filter(k => k <= newProgress)
+          .pop() ?? 0;
+        setPendingMessage(PENDING_MESSAGES[messageKey]);
+        
+        return newProgress;
+      });
+    }, 1800); // Fills up in ~3 minutes (180 seconds)
+
+    return () => clearInterval(interval);
+  }, [step, txHash]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!walletClient || !publicClient) {
@@ -88,7 +123,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
     }
 
     setStep('pending');
-    setPendingStep('submitting');
+    setProgress(5);
 
     try {
       let args: any[] = [];
@@ -107,7 +142,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
       });
 
       setTxHash(hash);
-      setPendingStep('confirming');
+      setProgress(15); // Move to next stage after tx is sent
 
       const receipt = await publicClient.waitForTransactionReceipt({
         hash,
@@ -115,11 +150,13 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
         pollingInterval: 5_000,
       });
 
+      setProgress(100);
+
       if (receipt.status === 'success' && receipt.contractAddress) {
         const newAddress = receipt.contractAddress;
         setDeployedAddress(newAddress);
         await addDeployment({
-          contractName: template.name,
+          "contractName": template.name,
           address: newAddress,
           deployer: address!,
           transactionHash: hash,
@@ -132,7 +169,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
       console.error(e);
       let message = e.shortMessage || e.message || 'An unknown error occurred.';
       if (e.name === 'TimeoutError') {
-        message = `Transaction confirmation timed out after 5 minutes. It may still succeed. Please check the explorer.`;
+        message = `Transaction confirmation timed out. It may still succeed. Please check the explorer.`;
       }
       setErrorMessage(message);
       setStep('error');
@@ -199,17 +236,22 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
             <DialogHeader>
               <DialogTitle>Deployment in Progress</DialogTitle>
               <DialogDescription>
-                {pendingStep === 'submitting'
+                {!txHash
                   ? 'Please confirm the transaction in your wallet.'
                   : 'Your contract is being deployed to the BlockDAG testnet.'}
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col items-center justify-center space-y-4 py-8">
-              <Loader2 className="h-16 w-16 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground text-center">
-                {pendingStep === 'submitting'
+              {!txHash ? (
+                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
+              ) : (
+                <Progress value={progress} className="w-full" />
+              )}
+              <p className="text-sm text-muted-foreground text-center min-h-[40px] flex items-center justify-center">
+                {!txHash
                   ? 'Waiting for wallet confirmation...'
-                  : 'Waiting for network confirmation... (this may take 2-5 minutes)'}
+                  : pendingMessage
+                }
               </p>
               {txHash && explorerUrl && (
                 <Button variant="link" asChild>
@@ -233,8 +275,9 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
               <DialogDescription>Your {template.name} contract is live.</DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-4">
-               <div className="text-sm bg-muted rounded-md p-3 font-mono break-all">
-                  <span className="font-semibold text-muted-foreground">Address:</span> {deployedAddress}
+               <div className="text-sm bg-muted rounded-md p-3 font-mono break-all text-left">
+                  <p className="font-semibold text-muted-foreground">Contract Address:</p>
+                  <p>{deployedAddress}</p>
                </div>
                {explorerUrl && txHash && (
                  <Button variant="outline" asChild className="w-full">
