@@ -169,7 +169,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
       console.error(e);
       let message = e.shortMessage || e.message || 'An unknown error occurred.';
       if (e.name === 'TimeoutError') {
-        message = `Transaction confirmation timed out. It may still succeed. Please check the explorer.`;
+        message = `Transaction confirmation timed out due to network congestion. It may still succeed. Please check the explorer.`;
       }
       setErrorMessage(message);
       setStep('error');
@@ -332,3 +332,5 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
     </Dialog>
   );
 }
+
+    
