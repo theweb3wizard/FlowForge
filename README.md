@@ -1,61 +1,57 @@
-# FlowForge 🌊 — No-Code DeFi for the BlockDAG Testnet
+# FlowForge 🌊 — No-Code Smart Contract Deployments for BlockDAG
 
-**Visit the live FlowForge site:** **[https://flowforgehq.netlify.app/](https://flowforgehq.netlify.app/)**
+**Visit the live FlowForge dApp:** **[https://flowforgehq.netlify.app/](https://flowforgehq.netlify.app/)**
 
-(Production preview hosted on Netlify.)
+**FlowForge is a no-code toolkit that empowers developers, DAOs, and builders to deploy secure, pre-audited smart contracts to the BlockDAG testnet without writing a single line of Solidity.**
 
-## The Vision: Democratizing DeFi on BlockDAG
-
-FlowForge is the first native, no-code toolkit for the BlockDAG ecosystem. Our mission is to empower developers, DAOs, and hackathon teams to launch secure and powerful DeFi primitives without writing a single line of Solidity.
-
-> **Value Proposition:** FlowForge transforms BlockDAG development by letting builders deploy secure, pre-audited DeFi contracts through a simple visual interface — reducing hours of Solidity work to minutes.
+> Our mission is to accelerate the growth of the BlockDAG ecosystem by transforming complex contract deployment into a simple, fast, and secure visual workflow.
 
 ---
 
-## The Problem: The DeFi Development Bottleneck
+## ✅ Wave 2 Complete: Live On-Chain Deployments
 
-Developing secure DeFi applications is complex, time-consuming, and expensive. For a new and rapidly growing ecosystem like BlockDAG, this friction can slow down innovation and the growth of on-chain liquidity.
+FlowForge is no longer just a prototype. We have successfully achieved our Wave 2 milestone: **live, on-chain deployment of smart contracts to the BlockDAG testnet.**
 
-- **High Barrier to Entry:** Mastering Solidity, deployment scripts, and security audits takes months, if not years.
-- **Security Risks:** Smart contract vulnerabilities are a constant threat. A single mistake can lead to catastrophic losses.
-- **Slow Iteration:** For hackathon teams and indie developers, the time spent on contract development is time lost on building a unique user experience.
-
-## The Solution: A Visual No-Code Factory
-
-FlowForge provides a curated library of pre-audited smart contract templates. Users select a template, configure parameters through an intuitive UI, and deploy directly to the BlockDAG testnet.
-
-- **Speed:** Launch a staking pool, vesting contract, or multi-sig wallet in under five minutes.
-- **Security:** All templates are rigorously audited, minimizing risk and inspiring user trust.
-- **Accessibility:** Opens the door for non-technical founders and community managers to build on BlockDAG.
+| Feature                 | Status       | Description                                                                       |
+| ----------------------- | ------------ | --------------------------------------------------------------------------------- |
+| **Wallet Integration**  | ✅ Completed | Connect MetaMask via Wagmi v2.                                                    |
+| **UI/UX Polish**        | ✅ Completed | Clean, intuitive interface built with Next.js, ShadCN, and Tailwind.              |
+| **Live Contract Deployment** | ✅ **Completed** | **Users can now deploy a real ERC-20 token contract directly to the BlockDAG testnet.** |
+| **Network Resilience**  | ✅ **Completed** | **Engineered robust solutions for BlockDAG-specific gas, CORS, and timeout issues.** |
+| **Database Persistence**| ✅ Completed | Deployment records (including contract address and tx hash) are saved to Supabase. |
+| **Explorer Verification**| ✅ Completed | Successful deployments include a direct link to view the transaction on the BlockDAG explorer. |
 
 ---
 
 ## 🏗️ Architecture Overview
 
-FlowForge is built on a modern, scalable web stack designed for a seamless user experience. The Wave 2 architecture validates the core user flow from wallet connection, on-chain deployment, to data persistence.
+FlowForge is built on a modern web stack designed for a seamless, resilient, and scalable user experience.
 
-**Core User Flow:**
+```
+[User's Browser]
+      |
+      +-----> [Next.js Frontend (React, wagmi)] ----> (1. Connects Wallet)
+      |         - Selects "ERC-20" Template
+      |         - Inputs Parameters ("MyToken", "MTK", 1000)
+      |
+      +-----> [MetaMask] ---------------------------> (2. Signs Transaction)
+      |
+      +-----> [/api/rpc Proxy (Next.js)] -----------> (3. Forwards request to avoid CORS)
+      |
+      +-----> [BlockDAG Testnet] -------------------> (4. Confirms Transaction)
+      |         (Returns Tx Receipt)
+      |
+[FlowForge Backend]
+      |
+      +-----> [Supabase Client] --------------------> (5. Saves Deployment Record)
+                - contractName, address, deployer, transactionHash
+      |
+[User's Browser]
+      |
+      +-----> [Dashboard] --------------------------> (6. Displays Public Deployments)
+```
 
-`User Connects Wallet (Wagmi)` → `Selects Template (Next.js UI)` → `Configures Parameters (React Hook Form)` → `Initiates Deployment (Viem)` → `Transaction Confirmed (BlockDAG Network)` → `Deployment is Recorded (Supabase)`
-
-This clean, decoupled architecture allows us to add more contract templates in the future without re-architecting the application.
-
-## ✅ Wave 2 Progress
-
-Our focus for Wave 2 was to implement real, on-chain functionality. We have successfully integrated with the BlockDAG testnet, enabling users to deploy their first smart contract directly from our UI.
-
-| Feature                 | Status       | Description                                                    |
-| ----------------------- | ------------ | -------------------------------------------------------------- |
-| **Wallet Integration**  | ✅ Completed | Connect MetaMask via Wagmi v2.                                 |
-| **UI/UX Scaffold**      | ✅ Completed | Built with Next.js, ShadCN, and Tailwind.                      |
-| **Real Deployment**     | ✅ Completed | **ERC-20 contracts are deployed live to the BlockDAG testnet.**   |
-| **Network Integration** | ✅ Completed | Custom RPC proxy and `viem` configuration to handle BlockDAG. |
-| **Database Connection** | ✅ Completed | Deployment data is successfully persisted to Supabase.         |
-| **Explorer Links**      | ✅ Completed | Users can view their deployment transaction on the BlockDAG explorer. |
-| **More Templates**      | 🔴 Planned     | ERC-721, Vesting, and other templates are planned for Wave 3.  |
-
-
-## ⚙️ Tech Stack
+### Tech Stack
 
 | Layer                | Technology                                      | Purpose                               |
 | -------------------- | ----------------------------------------------- | ------------------------------------- |
@@ -63,20 +59,19 @@ Our focus for Wave 2 was to implement real, on-chain functionality. We have succ
 | **Styling**          | TailwindCSS + ShadCN UI                         | Modern, Component-Based Design System |
 | **Wallet**           | `wagmi` + `viem`                                  | EVM Wallet Connection & Interaction   |
 | **Data Layer**       | Supabase                                        | Deployment Registry & History         |
-| **Hosting**          | Vercel                                          | Global, Performant Deployments        |
 | **Target Blockchain**| BlockDAG Testnet                                  | Core Deployment Target                |
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Getting Started Locally
 
-You can run a local instance of the FlowForge prototype in just a few steps.
+You can run a local instance of the FlowForge dApp in just a few steps.
 
 ### 1. Prerequisites
 
 - [Node.js](https://nodejs.org/en/) (v18.0 or later)
 - [npm](https://www.npmjs.com/) (or yarn/pnpm)
-- A MetaMask wallet (or any EIP-1193 compatible browser wallet)
+- A MetaMask wallet (or any EIP-1193 compatible browser wallet) with BlockDAG testnet funds.
 
 ### 2. Setup
 
@@ -90,18 +85,24 @@ npm install
 
 ### 3. Environment Configuration
 
-Create a `.env.local` file in the root of the project by copying the example file:
+Create a `.env.local` file by copying the example.
 
 ```bash
 cp .env.local.example .env.local
 ```
 
-Now, fill in your Supabase credentials in the `.env.local` file. You can get these from your Supabase project dashboard.
+Fill in the required environment variables in your new `.env.local` file:
 
 ```bash
-# Supabase Credentials
+# Get these from your Supabase Project -> Settings -> API
 NEXT_PUBLIC_SUPABASE_URL="YOUR_SUPABASE_URL"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY"
+
+# These are required for the BlockDAG network configuration
+# The RPC URL is used by the Next.js proxy
+NEXT_PUBLIC_BLOCKDAG_RPC_URL="https://rpc.awakening.bdagscan.com/"
+NEXT_PUBLIC_BLOCKDAG_CHAIN_ID="11155111" # Example ID, use the correct one
+NEXT_PUBLIC_BLOCKDAG_EXPLORER_URL="https://testnet.bdagscan.com"
 ```
 
 ### 4. Run the Development Server
@@ -114,20 +115,20 @@ Open [http://localhost:9002](http://localhost:9002) in your browser to see the a
 
 ---
 
-## 🗺️ Project Roadmap
+## 🗺️ Project Roadmap: Wave 3 and Beyond
+
+With a solid foundation in place, our focus now shifts to expanding FlowForge's capabilities and ecosystem value.
 
 | Phase  | Core Deliverable                                     | Status      |
 | ------ | ---------------------------------------------------- | ----------- |
 | **Wave 1** | UI Scaffold & Mocked Backend                       | ✅ Completed  |
-| **Wave 2** | **Real ERC-20 Deployment via BlockDAG RPC**        | ✅ **Completed** |
-| **Wave 3** | Verified Contracts, Explorer Integration, & More Templates | 🚀 Final     |
+| **Wave 2** | **Real ERC-20 Deployment to BlockDAG Testnet**     | ✅ **Completed** |
+| **Wave 3** | More Templates, Contract Verification & Analytics  | 🚀 Planned     |
 
-## 🏆 Buildathon Alignment
+Our priorities for Wave 3 include:
+- **More Contract Templates:** Introduce audited templates for NFTs (ERC-721), Vesting schedules, and Multi-Sig Wallets.
+- **One-Click Contract Verification:** Automate the process of verifying contract source code on the BlockDAG explorer—a major friction point for developers.
+- **Deployment Analytics:** Provide a simple dashboard for each deployed contract, showing key on-chain metrics like holder counts and transaction volume.
+- **ContractGuardian (Exploration):** Research the integration of an AI-powered security scanner to provide a preliminary, automated check on custom contract code before deployment.
 
-FlowForge is more than just a dApp; it's a strategic infrastructure tool designed to accelerate the growth of the entire BlockDAG ecosystem.
-
-- **Innovation:** As the **first native no-code builder for BlockDAG**, FlowForge addresses a critical gap in the developer toolkit.
-- **Ecosystem Impact:** By reducing developer onboarding friction, we directly support the buildathon's goal of expanding BlockDAG's DeFi footprint.
-- **Technical Foundation:** We've built a scalable, modern application scaffold, proving our ability to execute quickly and setting the stage for a seamless Wave 3 integration.
-
-We are excited to bring more on-chain functionality to FlowForge in Wave 3 and contribute a foundational tool to the BlockDAG community.
+We are excited to bring more on-chain functionality to FlowForge and contribute a foundational tool to the BlockDAG community.
