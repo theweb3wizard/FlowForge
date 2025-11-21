@@ -7,7 +7,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { ConnectWalletDialog } from './ConnectWalletDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Wallet, LogOut } from 'lucide-react';
-import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
 import { Menu } from 'lucide-react';
 
 const NavLinks = ({ className }: { className?: string }) => (
@@ -96,6 +96,12 @@ export function Header() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left">
+                <SheetHeader>
+                  <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
+                  <SheetDescription className="sr-only">
+                    A list of navigation links for the FlowForge application.
+                  </SheetDescription>
+                </SheetHeader>
                 <div className="flex flex-col space-y-4 p-4">
                   <Link href="/" className="flex items-center space-x-2">
                     <span className="font-bold font-headline text-lg">FlowForge</span>
