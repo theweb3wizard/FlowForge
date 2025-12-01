@@ -18,6 +18,7 @@ import { CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useWalletClient, usePublicClient } from 'wagmi';
 import { erc20Bytecode, erc20Abi } from '@/lib/abis/erc20';
+import { erc721Abi, erc721Bytecode } from '@/lib/abis/erc721';
 import { parseEther } from 'viem';
 
 type Step = 'form' | 'pending' | 'success' | 'error' | 'no_wallet';
@@ -127,16 +128,25 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
 
     try {
       let args: any[] = [];
+      let abi: any;
+      let bytecode: `0x${string}`;
+
       if (template.id === 'erc20') {
+        abi = erc20Abi;
+        bytecode = erc20Bytecode;
         args = [values.tokenName, values.tokenSymbol, parseEther(values.initialSupply)];
+      } else if (template.id === 'erc721') {
+        abi = erc721Abi;
+        bytecode = erc721Bytecode;
+        args = [values.collectionName, values.collectionSymbol];
       } else {
-        args = template.parameters.map(p => values[p.name]);
+         throw new Error("Unsupported contract template.");
       }
       
       const hash = await walletClient.deployContract({
-        abi: erc20Abi,
-        bytecode: erc20Bytecode,
-        args: args,
+        abi,
+        bytecode,
+        args,
         gas: 5000000n, // Manual gas limit
         gasPrice: 1000000000n, // 1 gwei
       });

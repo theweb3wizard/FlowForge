@@ -38,7 +38,7 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
       { name: 'collectionName', label: 'Collection Name', type: 'text', placeholder: 'e.g., Cool Cats' },
       { name: 'collectionSymbol', label: 'Collection Symbol', type: 'text', placeholder: 'e.g., CATS' },
     ],
-    status: 'soon',
+    status: 'live',
   },
   {
     id: 'vesting',
