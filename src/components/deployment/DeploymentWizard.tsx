@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -14,12 +15,13 @@ import { type ContractTemplate } from '@/lib/contracts';
 import { useWallet } from '@/contexts/WalletContext';
 import { useDeployments } from '@/contexts/DeploymentContext';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Loader2, FileJson } from 'lucide-react';
 import Link from 'next/link';
 import { useWalletClient, usePublicClient } from 'wagmi';
 import { erc20Bytecode, erc20Abi } from '@/lib/abis/erc20';
 import { erc721Abi, erc721Bytecode } from '@/lib/abis/erc721';
 import { parseEther } from 'viem';
+import { useToast } from '@/hooks/use-toast';
 
 type Step = 'form' | 'pending' | 'success' | 'error' | 'no_wallet';
 
@@ -63,6 +65,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
 
   const { address, connectors, connect } = useWallet();
   const { addDeployment } = useDeployments();
+  const { toast } = useToast();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
@@ -192,6 +195,27 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
     }
   };
 
+  const handleCopyAbi = async () => {
+    const abi = template.id === 'erc20' ? erc20Abi : erc721Abi;
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API not available.");
+      }
+      await navigator.clipboard.writeText(JSON.stringify(abi, null, 2));
+      toast({
+        title: "ABI Copied!",
+        description: "The contract ABI has been copied to your clipboard.",
+      });
+    } catch (error) {
+      console.error("Failed to copy ABI:", error);
+      toast({
+        variant: "destructive",
+        title: "Copy Failed",
+        description: "Could not copy ABI to clipboard.",
+      });
+    }
+  };
+
   const explorerUrl = process.env.NEXT_PUBLIC_BLOCKDAG_EXPLORER_URL;
 
   const renderContent = () => {
@@ -284,18 +308,24 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
               <DialogTitle className="mt-4">Deployment Successful!</DialogTitle>
               <DialogDescription>Your {template.name} contract is live.</DialogDescription>
             </DialogHeader>
-            <div className="py-4 space-y-4">
+            <div className="py-4 space-y-2">
                <div className="text-sm bg-muted rounded-md p-3 font-mono break-all text-left">
                   <p className="font-semibold text-muted-foreground">Contract Address:</p>
                   <p>{deployedAddress}</p>
                </div>
-               {explorerUrl && txHash && (
-                 <Button variant="outline" asChild className="w-full">
-                    <a href={`${explorerUrl}/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
-                      View on Explorer
-                    </a>
-                 </Button>
-               )}
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {explorerUrl && txHash && (
+                  <Button variant="outline" asChild className="w-full">
+                      <a href={`${explorerUrl}/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+                        View on Explorer
+                      </a>
+                  </Button>
+                )}
+                <Button variant="outline" className="w-full" onClick={handleCopyAbi}>
+                  <FileJson className="mr-2 h-4 w-4" />
+                  Copy ABI
+                </Button>
+               </div>
                <Button asChild className="w-full">
                 <Link href="/dashboard" onClick={() => onOpenChange(false)}>
                   View on Dashboard
