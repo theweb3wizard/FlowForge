@@ -5,12 +5,13 @@ import { useMemo } from 'react';
 import type { Deployment } from '@/lib/deployments';
 import { erc20Abi } from '@/lib/abis/erc20';
 import { erc721Abi } from '@/lib/abis/erc721';
-import { parseContractAbi, ParsedAbiFunction } from '@/lib/abi-utils';
+import { parseContractAbi } from '@/lib/abi-utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion } from '@/components/ui/accordion';
 import { FunctionForm } from './FunctionForm';
 import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { Terminal } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 interface ContractInteractionPanelProps {
   deployment: Deployment;
