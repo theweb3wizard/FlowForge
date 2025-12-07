@@ -13,9 +13,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fs';
 import { Button } from '../ui/button';
-import { Copy, ExternalLink, FileJson } from 'lucide-react';
+import { Copy, ExternalLink, FileJson, ChevronsRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
@@ -23,6 +23,7 @@ import { erc20Abi } from '@/lib/abis/erc20';
 import { erc721Abi } from '@/lib/abis/erc721';
 import { CONTRACT_TEMPLATES } from '@/lib/contracts';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../ui/pagination';
+import Link from 'next/link';
 
 const PAGE_SIZE = 10;
 
@@ -45,7 +46,6 @@ export default function DeploymentTable() {
       const from = (currentPage - 1) * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
-      // Fetch total count and data in parallel
       const countPromise = supabase.from('deployments').select('*', { count: 'exact', head: true });
       const dataPromise = supabase
         .from('deployments')
@@ -77,13 +77,10 @@ export default function DeploymentTable() {
 
   useEffect(() => {
     if (newDeployment) {
-        // If on the first page, prepend the new deployment to the list
         if (currentPage === 1) {
             setDeployments(prev => [newDeployment, ...prev.slice(0, PAGE_SIZE - 1)]);
             setTotalCount(prev => prev + 1);
         } else {
-            // If on another page, just invalidate and refetch could be an option,
-            // but for now we'll prompt the user to go to the first page.
             toast({
                 title: "New Deployment Created",
                 description: "A new contract has been deployed. Go to the first page to see it.",
@@ -220,6 +217,16 @@ export default function DeploymentTable() {
                             </TooltipTrigger>
                             <TooltipContent><p>Copy Contract ABI</p></TooltipContent>
                         </Tooltip>
+                         <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                                    <Link href={`/dashboard/contract/${dep.address}`}>
+                                        <ChevronsRight className="h-4 w-4" />
+                                    </Link>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Interact with Contract</p></TooltipContent>
+                        </Tooltip>
                         </div>
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
@@ -238,15 +245,10 @@ export default function DeploymentTable() {
                     <div className="flex justify-between items-start">
                         <p className="font-semibold">{dep.contractName}</p>
                         <div className="flex items-center -mt-2 -mr-2">
-                        {explorerUrl && dep.transactionHash && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                                <a href={`${explorerUrl}/tx/${dep.transactionHash}`} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="h-4 w-4" />
-                                </a>
-                            </Button>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleCopyAbi(dep.contractName)}>
-                            <FileJson className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                            <Link href={`/dashboard/contract/${dep.address}`}>
+                                <ChevronsRight className="h-4 w-4" />
+                            </Link>
                         </Button>
                         </div>
                     </div>
@@ -254,6 +256,18 @@ export default function DeploymentTable() {
                         <p className="font-mono break-all">{dep.address}</p>
                         <p className="font-mono break-all mt-1">{dep.deployer}</p>
                     </div>
+                     <div className="flex items-center gap-1 pt-2">
+                        {explorerUrl && dep.transactionHash && (
+                            <Button variant="outline" size="sm" asChild>
+                                <a href={`${explorerUrl}/tx/${dep.transactionHash}`} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="mr-2 h-3 w-3" /> Explorer
+                                </a>
+                            </Button>
+                        )}
+                        <Button variant="outline" size="sm" onClick={() => handleCopyAbi(dep.contractName)}>
+                            <FileJson className="mr-2 h-3 w-3" /> Copy ABI
+                        </Button>
+                     </div>
                     <p className="text-xs text-muted-foreground pt-2">
                         {formatDistanceToNow(new Date(dep.timestamp), { addSuffix: true })}
                     </p>
@@ -331,4 +345,3 @@ export default function DeploymentTable() {
     </TooltipProvider>
   );
 }
-
