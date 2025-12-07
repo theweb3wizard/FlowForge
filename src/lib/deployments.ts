@@ -1,5 +1,6 @@
+
 export type Deployment = {
-  id: string;
+  id: number;
   contractName: string;
   address: string;
   deployer: string;
