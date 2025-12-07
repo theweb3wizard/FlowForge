@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Deployment } from '@/lib/deployments';
 import { notFound } from 'next/navigation';
@@ -21,7 +21,7 @@ interface ContractPageProps {
 }
 
 export default function ContractPage({ params }: ContractPageProps) {
-  const { address } = params;
+  const { address } = use(params);
   const [deployment, setDeployment] = useState<Deployment | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
