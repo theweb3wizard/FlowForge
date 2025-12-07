@@ -1,4 +1,5 @@
 import DeploymentTable from "@/components/dashboard/DeploymentTable";
+import StatsPanel from "@/components/dashboard/StatsPanel";
 
 export default function DashboardPage() {
   return (
@@ -11,6 +12,7 @@ export default function DashboardPage() {
           A transparent, public list of all contracts deployed through FlowForge.
         </p>
       </header>
+      <StatsPanel />
       <DeploymentTable />
     </div>
   );
