@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatDistanceToNow } from 'date-fs';
+import { formatDistanceToNow } from 'date-fns';
 import { Button } from '../ui/button';
 import { Copy, ExternalLink, FileJson, ChevronsRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
