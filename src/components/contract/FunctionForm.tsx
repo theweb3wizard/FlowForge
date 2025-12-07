@@ -120,8 +120,16 @@ export function FunctionForm({ func, address, abi }: FunctionFormProps) {
             {func.type === 'read' ? 'Query' : 'Execute'}
           </Button>
 
-          {result && (
-            <Alert>
+          {error && (
+            <Alert variant="destructive" className="mt-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription className="break-words">{error}</AlertDescription>
+            </Alert>
+           )}
+
+          {result && !error && (
+            <Alert className="mt-4">
               <Terminal className="h-4 w-4" />
               <AlertTitle>Result</AlertTitle>
               <AlertDescription>
@@ -129,14 +137,6 @@ export function FunctionForm({ func, address, abi }: FunctionFormProps) {
               </AlertDescription>
             </Alert>
           )}
-
-           {error && (
-            <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription className="break-words">{error}</AlertDescription>
-            </Alert>
-           )}
         </form>
       </AccordionContent>
     </AccordionItem>
