@@ -8,15 +8,14 @@ import { useWallet } from '@/contexts/WalletContext';
 import { ConnectWalletDialog } from './ConnectWalletDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Wallet, LogOut, Home, LayoutDashboard } from 'lucide-react';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
 import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
-  const commonClasses = "text-sm font-medium text-muted-foreground transition-colors hover:text-foreground";
   if (isMobile) {
     return (
-      <nav className="flex flex-col space-y-3">
+      <nav className="flex flex-col space-y-2">
         <Link href="/" className={cn(buttonVariants({ variant: 'ghost' }), "justify-start text-base")}>
           <Home className="mr-3 h-5 w-5" />
           Home
@@ -30,11 +29,11 @@ const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
   }
 
   return (
-    <nav className="flex items-center space-x-6">
-      <Link href="/" className={commonClasses}>
+    <nav className="flex items-center space-x-6 text-sm font-medium">
+      <Link href="/" className="text-muted-foreground transition-colors hover:text-foreground">
         Home
       </Link>
-      <Link href="/dashboard" className={commonClasses}>
+      <Link href="/dashboard" className="text-muted-foreground transition-colors hover:text-foreground">
         Dashboard
       </Link>
     </nav>
@@ -117,13 +116,16 @@ export function Header() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="pr-0">
-                 <Link href="/" className="mr-6 flex items-center space-x-2 mb-6">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="h-6 w-6 fill-primary">
-                        <path d="M213.6,82.3,144,46.33a15.89,15.89,0,0,0-16.1,0l-69.6,36A16,16,0,0,0,52,96.57V159.43a16,16,0,0,0,6.3,14.27l69.6,36a15.89,15.89,0,0,0,16.1,0l69.6-36a16,16,0,0,0,6.3-14.27V96.57A16,16,0,0,0,213.6,82.3Z" opacity="0.2"></path><path d="M220,96.57a16,16,0,0,0-6.4-14.27l-69.6-36a15.89,15.89,0,0,0-16.1,0l-69.6,36A16,16,0,0,0,52,96.57v62.86a16,16,0,0,0,6.3,14.27l69.6,36a15.89,15.89,0,0,0,16.1,0l69.6-36A16,16,0,0,0,220,159.43ZM128,197.67,64,164.57v-63l64,33.1ZM136,124,66.4,88.4,136,52.83l69.6,35.57Z"></path>
-                    </svg>
-                    <span className="font-bold font-headline text-lg">FlowForge</span>
-                 </Link>
-                <div className="flex flex-col space-y-2">
+                <SheetHeader>
+                   <Link href="/" className="flex items-center space-x-2 mb-6">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="h-6 w-6 fill-primary">
+                          <path d="M213.6,82.3,144,46.33a15.89,15.89,0,0,0-16.1,0l-69.6,36A16,16,0,0,0,52,96.57V159.43a16,16,0,0,0,6.3,14.27l69.6,36a15.89,15.89,0,0,0,16.1,0l69.6-36a16,16,0,0,0,6.3-14.27V96.57A16,16,0,0,0,213.6,82.3Z" opacity="0.2"></path><path d="M220,96.57a16,16,0,0,0-6.4-14.27l-69.6-36a15.89,15.89,0,0,0-16.1,0l-69.6,36A16,16,0,0,0,52,96.57v62.86a16,16,0,0,0,6.3,14.27l69.6,36a15.89,15.89,0,0,0,16.1,0l69.6-36A16,16,0,0,0,220,159.43ZM128,197.67,64,164.57v-63l64,33.1ZM136,124,66.4,88.4,136,52.83l69.6,35.57Z"></path>
+                      </svg>
+                      <span className="font-bold font-headline text-lg">FlowForge</span>
+                   </Link>
+                   <SheetTitle className="sr-only">Navigation</SheetTitle>
+                </SheetHeader>
+                <div className="flex flex-col space-y-2 mt-4">
                   <NavLinks isMobile={true} />
                 </div>
               </SheetContent>
@@ -139,5 +141,3 @@ export function Header() {
     </>
   );
 }
-
-    
