@@ -147,7 +147,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
         abi = erc721Abi;
         bytecode = erc721Bytecode;
         args = [values.collectionName, values.collectionSymbol];
-        gasLimit = 7000000n; // Increased gas limit for ERC721
+        gasLimit = 7000000n;
       } else {
          throw new Error("Unsupported contract template.");
       }
@@ -157,7 +157,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
         bytecode,
         args,
         gas: gasLimit,
-        gasPrice: 1000000000n, // 1 gwei - MANUAL OVERRIDE
+        gasPrice: 1000000000n, // 1 gwei - MANUAL OVERRIDE FOR ALL
       });
 
       setTxHash(hash);
@@ -378,7 +378,3 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
     </Dialog>
   );
 }
-
-    
-
-    
