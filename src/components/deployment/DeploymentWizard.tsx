@@ -15,12 +15,12 @@ import { type ContractTemplate } from '@/lib/contracts';
 import { useWallet } from '@/contexts/WalletContext';
 import { useDeployments } from '@/contexts/DeploymentContext';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { CheckCircle, AlertTriangle, Loader2, FileJson } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Loader2, FileJson, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { useWalletClient, usePublicClient } from 'wagmi';
 import { erc20Bytecode, erc20Abi } from '@/lib/abis/erc20';
 import { erc721Abi, erc721Bytecode } from '@/lib/abis/erc721';
-import { parseEther } from 'viem';
+import { isAddress, parseEther } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 
 type Step = 'form' | 'pending' | 'success' | 'error' | 'no_wallet';
@@ -41,16 +41,18 @@ interface DeploymentWizardProps {
 const generateSchema = (template: ContractTemplate) => {
   const shape: { [key: string]: z.ZodType<any, any> } = {};
   template.parameters.forEach(param => {
+    let schema: z.ZodString;
     switch (param.type) {
       case 'number':
-        shape[param.name] = z.string().min(1, 'Required').regex(/^\d+(\.\d+)?$/, 'Must be a number');
+        schema = z.string().min(1, 'Required').regex(/^\d+(\.\d+)?$/, 'Must be a number');
         break;
       case 'address':
-        shape[param.name] = z.string().min(1, 'Required').regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid address');
+        schema = z.string().min(1, 'Required').refine(isAddress, { message: 'Invalid address format.' });
         break;
       default:
-        shape[param.name] = z.string().min(1, 'Required');
+        schema = z.string().min(1, 'Required');
     }
+    shape[param.name] = schema;
   });
   return z.object(shape);
 };
@@ -73,6 +75,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: template.parameters.reduce((acc, param) => ({ ...acc, [param.name]: '' }), {}),
+    mode: 'onChange',
   });
 
   useEffect(() => {
@@ -133,15 +136,18 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
       let args: any[] = [];
       let abi: any;
       let bytecode: `0x${string}`;
+      let gasLimit: bigint;
 
       if (template.id === 'erc20') {
         abi = erc20Abi;
         bytecode = erc20Bytecode;
         args = [values.tokenName, values.tokenSymbol, parseEther(values.initialSupply)];
+        gasLimit = 5000000n;
       } else if (template.id === 'erc721') {
         abi = erc721Abi;
         bytecode = erc721Bytecode;
         args = [values.collectionName, values.collectionSymbol];
+        gasLimit = 7000000n; // Increased gas limit for ERC721
       } else {
          throw new Error("Unsupported contract template.");
       }
@@ -150,7 +156,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
         abi,
         bytecode,
         args,
-        gas: 5000000n, // Manual gas limit
+        gas: gasLimit, // Use dynamic gas limit
         gasPrice: 1000000000n, // 1 gwei
       });
 
@@ -258,7 +264,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
                   />
                 ))}
                 <DialogFooter>
-                  <Button type="submit" disabled={!walletClient}>Deploy Contract</Button>
+                  <Button type="submit" disabled={!walletClient || !form.formState.isValid}>Deploy Contract</Button>
                 </DialogFooter>
               </form>
             </Form>
@@ -322,7 +328,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
                   </Button>
                 )}
                 <Button variant="outline" className="w-full" onClick={handleCopyAbi}>
-                  <FileJson className="mr-2 h-4 w-4" />
+                  <Copy className="mr-2 h-4 w-4" />
                   Copy ABI
                 </Button>
                </div>
@@ -372,3 +378,5 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
     </Dialog>
   );
 }
+
+    
