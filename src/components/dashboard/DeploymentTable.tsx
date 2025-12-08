@@ -15,7 +15,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '../ui/button';
-import { Copy, ExternalLink, FileJson, ChevronsRight } from 'lucide-react';
+import { Copy, ExternalLink, FileJson, ChevronsRight, Rocket } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
@@ -145,8 +145,13 @@ export default function DeploymentTable() {
 
     if (!deployments.length && !loading) {
       return (
-        <CardContent className="p-8 text-center text-muted-foreground">
-          No deployments yet.
+        <CardContent className="p-8 text-center text-muted-foreground flex flex-col items-center gap-4">
+          <Rocket className="h-12 w-12 text-primary" />
+          <h3 className="text-xl font-semibold text-foreground">No Deployments Yet</h3>
+          <p>It looks like you haven't deployed any contracts. Get started by deploying your first one!</p>
+          <Button asChild>
+            <Link href="/">Deploy First Contract</Link>
+          </Button>
         </CardContent>
       );
     }
@@ -344,3 +349,5 @@ export default function DeploymentTable() {
     </TooltipProvider>
   );
 }
+
+    
