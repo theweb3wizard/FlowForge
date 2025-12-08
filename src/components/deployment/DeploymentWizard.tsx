@@ -15,7 +15,7 @@ import { type ContractTemplate } from '@/lib/contracts';
 import { useWallet } from '@/contexts/WalletContext';
 import { useDeployments } from '@/contexts/DeploymentContext';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { CheckCircle, AlertTriangle, Loader2, FileJson, Copy } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Loader2, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { useWalletClient, usePublicClient } from 'wagmi';
 import { erc20Bytecode, erc20Abi } from '@/lib/abis/erc20';
@@ -156,8 +156,8 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
         abi,
         bytecode,
         args,
-        gas: gasLimit, // Use dynamic gas limit
-        gasPrice: 1000000000n, // 1 gwei
+        gas: gasLimit,
+        gasPrice: 1000000000n, // 1 gwei - MANUAL OVERRIDE
       });
 
       setTxHash(hash);
@@ -378,5 +378,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
     </Dialog>
   );
 }
+
+    
 
     
