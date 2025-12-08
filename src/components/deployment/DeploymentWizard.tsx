@@ -20,7 +20,7 @@ import Link from 'next/link';
 import { useWalletClient, usePublicClient } from 'wagmi';
 import { erc20Bytecode, erc20Abi } from '@/lib/abis/erc20';
 import { erc721Abi, erc721Bytecode } from '@/lib/abis/erc721';
-import { isAddress, parseEther } from 'viem';
+import { isAddress, parseEther, encodeDeployData } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 
 type Step = 'form' | 'pending' | 'success' | 'error' | 'no_wallet';
@@ -152,12 +152,17 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
          throw new Error("Unsupported contract template.");
       }
       
-      const hash = await walletClient.deployContract({
+      const deployData = encodeDeployData({
         abi,
         bytecode,
         args,
+      });
+
+      const hash = await walletClient.sendTransaction({
+        data: deployData,
         gas: gasLimit,
-        gasPrice: 1000000000n, // 1 gwei - MANUAL OVERRIDE FOR ALL
+        gasPrice: 1000000000n, // 1 gwei
+        to: null, // This signifies contract creation
       });
 
       setTxHash(hash);
