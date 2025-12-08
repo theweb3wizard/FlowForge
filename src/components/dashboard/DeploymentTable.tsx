@@ -20,7 +20,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { erc20Abi } from '@/lib/abis/erc20';
-import { erc721Abi } from '@/lib/abis/erc721';
 import { CONTRACT_TEMPLATES } from '@/lib/contracts';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../ui/pagination';
 import Link from 'next/link';
@@ -106,7 +105,7 @@ export default function DeploymentTable() {
     }
 
     try {
-      const abi = template.id === 'erc20' ? erc20Abi : erc721Abi;
+      const abi = template.id === 'erc20' ? erc20Abi : [];
       if (!abi) throw new Error('ABI definition is missing.');
       
       await navigator.clipboard.writeText(JSON.stringify(abi, null, 2));

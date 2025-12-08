@@ -19,7 +19,6 @@ import { CheckCircle, AlertTriangle, Loader2, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { useWalletClient, usePublicClient } from 'wagmi';
 import { erc20Bytecode, erc20Abi } from '@/lib/abis/erc20';
-import { erc721Abi, erc721Bytecode } from '@/lib/abis/erc721';
 import { isAddress, parseEther, encodeDeployData } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 
@@ -133,7 +132,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
     setProgress(5);
 
     try {
-      let args: any[] = [];
+      let args: any[];
       let abi: any;
       let bytecode: `0x${string}`;
       let gasLimit: bigint;
@@ -143,11 +142,6 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
         bytecode = erc20Bytecode;
         args = [values.tokenName, values.tokenSymbol, parseEther(values.initialSupply)];
         gasLimit = 5000000n;
-      } else if (template.id === 'erc721') {
-        abi = erc721Abi;
-        bytecode = erc721Bytecode;
-        args = [values.collectionName, values.collectionSymbol];
-        gasLimit = 7000000n;
       } else {
          throw new Error("Unsupported contract template.");
       }
@@ -207,7 +201,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
   };
 
   const handleCopyAbi = async () => {
-    const abi = template.id === 'erc20' ? erc20Abi : erc721Abi;
+    const abi = template.id === 'erc20' ? erc20Abi : [];
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API not available.");

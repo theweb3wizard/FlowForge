@@ -4,7 +4,6 @@
 import { useMemo } from 'react';
 import type { Deployment } from '@/lib/deployments';
 import { erc20Abi } from '@/lib/abis/erc20';
-import { erc721Abi } from '@/lib/abis/erc721';
 import { parseContractAbi } from '@/lib/abi-utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion } from '@/components/ui/accordion';
@@ -19,7 +18,7 @@ interface ContractInteractionPanelProps {
 
 export function ContractInteractionPanel({ deployment }: ContractInteractionPanelProps) {
   const abi = useMemo(() => {
-    return deployment.contractName.includes('ERC-20') ? erc20Abi : erc721Abi;
+    return deployment.contractName.includes('ERC-20') ? erc20Abi : [];
   }, [deployment.contractName]);
 
   const { reads, writes } = useMemo(() => parseContractAbi(abi), [abi]);

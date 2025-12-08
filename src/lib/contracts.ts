@@ -30,17 +30,6 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
     status: 'live',
   },
   {
-    id: 'erc721',
-    name: 'NFT Collection (ERC-721)',
-    description: 'Launch a collection of unique, non-fungible tokens. Ideal for digital art, collectibles, and gaming items.',
-    icon: 'GalleryThumbnails',
-    parameters: [
-      { name: 'collectionName', label: 'Collection Name', type: 'text', placeholder: 'e.g., Cool Cats' },
-      { name: 'collectionSymbol', label: 'Collection Symbol', type: 'text', placeholder: 'e.g., CATS' },
-    ],
-    status: 'live',
-  },
-  {
     id: 'vesting',
     name: 'Token Vesting',
     description: 'Lock up tokens for a specified period, releasing them gradually over time. Essential for team and investor allocations.',
