@@ -7,6 +7,7 @@ import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
 import { DeploymentProvider } from '@/contexts/DeploymentContext';
 import { Web3Provider } from '@/components/common/Web3Provider';
+import { ThemeProvider } from '@/components/common/ThemeProvider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -42,18 +43,25 @@ export default function RootLayout({
           spaceGrotesk.variable
         )}
       >
-        <Web3Provider>
-          <DeploymentProvider>
-            <div vaul-drawer-wrapper="">
-              <div className="relative flex min-h-screen flex-col bg-background">
-                <Header />
-                <main className="flex-1">{children}</main>
-                <Footer />
-              </div>
-            </div>
-            <Toaster />
-          </DeploymentProvider>
-        </Web3Provider>
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+        >
+            <Web3Provider>
+              <DeploymentProvider>
+                <div vaul-drawer-wrapper="">
+                  <div className="relative flex min-h-screen flex-col bg-background">
+                    <Header />
+                    <main className="flex-1">{children}</main>
+                    <Footer />
+                  </div>
+                </div>
+                <Toaster />
+              </DeploymentProvider>
+            </Web3Provider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -11,6 +11,7 @@ import { Wallet, LogOut, Home, LayoutDashboard } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
 import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from './ThemeToggle';
 
 const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
   if (isMobile) {
@@ -132,7 +133,8 @@ export function Header() {
             </Sheet>
           </div>
           
-          <div className="flex flex-1 items-center justify-end space-x-4">
+          <div className="flex flex-1 items-center justify-end space-x-2">
+            <ThemeToggle />
             <WalletButton />
           </div>
         </div>
