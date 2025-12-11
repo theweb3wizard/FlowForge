@@ -18,7 +18,7 @@ const CompileContractInputSchema = z.object({
 });
 export type CompileContractInput = z.infer<typeof CompileContractInputSchema>;
 
-const CompileContractOutputSchema = z.object({
+export const CompileContractOutputSchema = z.object({
   abi: z.any().describe('The Application Binary Interface (ABI) of the compiled contract.'),
   bytecode: z.string().describe('The bytecode of the compiled contract.'),
 });
