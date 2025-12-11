@@ -24,7 +24,7 @@ const OnboardContractInputSchema = z.object({
 });
 export type OnboardContractInput = z.infer<typeof OnboardContractInputSchema>;
 
-const OnboardContractOutputSchema = z.object({
+export const OnboardContractOutputSchema = z.object({
   sourceContractName: z.string().describe("The exact name of the main contract found in the Solidity code, e.g., 'MyContract' for 'contract MyContract { ... }'"),
   description: z.string().describe('A concise, one-sentence description of what the smart contract does. This will be shown on the template card.'),
   icon: z.string().describe('The name of a single, relevant icon from the lucide-react library (e.g., "Coins", "ShieldCheck", "Lock"). Choose the best one that represents the contract\'s purpose.'),
