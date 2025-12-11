@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { onboardContract } from '@/ai/flows/onboard-contract-flow';
+import { compileContract } from '@/ai/flows/compile-solidity-flow';
 import { Loader2 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -30,30 +31,38 @@ export default function AdminPage() {
     setLoading(true);
     toast({
       title: 'Generation Started',
-      description: 'The AI is analyzing your smart contract...',
+      description: 'The AI is analyzing and compiling your smart contract...',
     });
 
     try {
-      const result = await onboardContract({
-        contractName: contractName,
-        solidityCode: solidityCode,
-      });
+      // Run both flows in parallel
+      const [metadataResult, compilationResult] = await Promise.all([
+        onboardContract({
+          contractName: contractName,
+          solidityCode: solidityCode,
+        }),
+        compileContract({
+          contractName: contractName,
+          solidityCode: solidityCode,
+        })
+      ]);
 
-      console.log('AI Analysis Result:', result);
+      console.log('AI Analysis Result:', metadataResult);
+      console.log('Compilation Result:', compilationResult);
 
       toast({
-        title: 'Analysis Complete!',
-        description: `Successfully generated template for ${contractName}.`,
+        title: 'Analysis & Compilation Complete!',
+        description: `Successfully processed ${contractName}. Check the console for output.`,
       });
 
-      // In the next step, we will use this 'result' to generate the files.
-      // For now, we'll just log it.
+      // In the next step, we will use these results to generate the files.
+      // For now, we'll just log them.
 
     } catch (error: any) {
-      console.error('Error during AI analysis:', error);
+      console.error('Error during AI processing:', error);
       toast({
         variant: 'destructive',
-        title: 'Analysis Failed',
+        title: 'Processing Failed',
         description: error.message || 'The AI could not process the contract. Please check the logs.',
       });
     } finally {
@@ -76,7 +85,7 @@ export default function AdminPage() {
         <CardHeader>
           <CardTitle>Contract Onboarding</CardTitle>
           <CardDescription>
-            Provide the Solidity code and a name for your contract. The AI will handle the rest.
+            Provide the Solidity code and the main contract name. The AI will handle the rest.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -84,7 +93,7 @@ export default function AdminPage() {
             <Label htmlFor="contractName">Contract Name</Label>
             <Input
               id="contractName"
-              placeholder="e.g., Simple Multisig Wallet"
+              placeholder="e.g., MultiSigWallet"
               value={contractName}
               onChange={(e) => setContractName(e.target.value)}
               disabled={loading}
@@ -104,7 +113,7 @@ export default function AdminPage() {
         </CardContent>
         <CardFooter>
           <Button onClick={handleGenerateTemplate} disabled={loading} className="w-full">
-            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</> : 'Generate Template'}
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing & Compiling...</> : 'Generate Template'}
           </Button>
         </CardFooter>
       </Card>
