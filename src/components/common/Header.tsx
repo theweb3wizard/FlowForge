@@ -7,23 +7,28 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
 import { ConnectWalletDialog } from './ConnectWalletDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Wallet, LogOut, Home, LayoutDashboard } from 'lucide-react';
+import { Wallet, LogOut, Home, LayoutDashboard, Menu, Settings } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
-import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from './ThemeToggle';
 
 const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
+  const commonClasses = "justify-start text-base";
+  
   if (isMobile) {
     return (
       <nav className="flex flex-col space-y-2">
-        <Link href="/" className={cn(buttonVariants({ variant: 'ghost' }), "justify-start text-base")}>
+        <Link href="/" className={cn(buttonVariants({ variant: 'ghost' }), commonClasses)}>
           <Home className="mr-3 h-5 w-5" />
           Home
         </Link>
-        <Link href="/dashboard" className={cn(buttonVariants({ variant: 'ghost' }), "justify-start text-base")}>
+        <Link href="/dashboard" className={cn(buttonVariants({ variant: 'ghost' }), commonClasses)}>
           <LayoutDashboard className="mr-3 h-5 w-5" />
           Dashboard
+        </Link>
+        <Link href="/admin" className={cn(buttonVariants({ variant: 'ghost' }), commonClasses)}>
+          <Settings className="mr-3 h-5 w-5" />
+          Admin
         </Link>
       </nav>
     );
@@ -36,6 +41,9 @@ const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
       </Link>
       <Link href="/dashboard" className="text-muted-foreground transition-colors hover:text-foreground">
         Dashboard
+      </Link>
+       <Link href="/admin" className="text-muted-foreground transition-colors hover:text-foreground">
+        Admin
       </Link>
     </nav>
   );
