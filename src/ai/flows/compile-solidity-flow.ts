@@ -9,12 +9,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import * as fs from 'fs/promises';
-import * as path from 'path';
-
-const execAsync = promisify(exec);
+import solc from 'solc';
 
 const CompileContractInputSchema = z.object({
   contractName: z.string().describe('The name of the main contract to compile.'),
@@ -36,77 +31,50 @@ const compileSolidityFlow = ai.defineFlow(
     outputSchema: CompileContractOutputSchema,
   },
   async (input) => {
-    const tempDir = path.join('/tmp', `solc-compile-${Date.now()}`);
-    const filePath = path.join(tempDir, 'Contract.sol');
-
     try {
-      // 1. Create a temporary directory and write the Solidity file
-      await fs.mkdir(tempDir, { recursive: true });
-      await fs.writeFile(filePath, input.solidityCode);
-
-      // 2. Install solc in the temp directory
-      await execAsync(`cd ${tempDir} && npm i solc@0.8.20`);
-
-      // 3. Compile the contract using a Node.js script
-      const compilerScript = `
-        const solc = require('solc');
-        const fs = require('fs');
-        const path = require('path');
-
-        const contractPath = path.resolve('${filePath}');
-        const source = fs.readFileSync(contractPath, 'utf8');
-
-        const input = {
-            language: 'Solidity',
-            sources: {
-                'Contract.sol': {
-                    content: source,
-                },
+      const compilerInput = {
+        language: 'Solidity',
+        sources: {
+          'Contract.sol': {
+            content: input.solidityCode,
+          },
+        },
+        settings: {
+          outputSelection: {
+            '*': {
+              '*': ['abi', 'evm.bytecode.object'],
             },
-            settings: {
-                outputSelection: {
-                    '*': {
-                        '*': ['abi', 'evm.bytecode.object'],
-                    },
-                },
-            },
-        };
-        
-        const output = JSON.parse(solc.compile(JSON.stringify(input)));
+          },
+        },
+      };
 
-        if (output.errors) {
-            const errorMessages = output.errors.map(err => err.formattedMessage).join('\\n');
-            if (errorMessages.toLowerCase().includes('error')) {
-                throw new Error('Compilation failed:\\n' + errorMessages);
-            }
+      const output = JSON.parse(solc.compile(JSON.stringify(compilerInput)));
+
+      if (output.errors) {
+        const errorMessages = output.errors.map((err: any) => err.formattedMessage).join('\n');
+        // Filter out non-error warnings
+        const hasErrors = output.errors.some((err: any) => err.severity === 'error');
+        if (hasErrors) {
+          throw new Error(`Compilation failed:\n${errorMessages}`);
         }
-        
-        const compiledContract = output.contracts['Contract.sol']['${input.contractName}'];
-        if (!compiledContract) {
-            throw new Error('Contract name "${input.contractName}" not found in compiled output.');
-        }
-
-        const abi = compiledContract.abi;
-        const bytecode = '0x' + compiledContract.evm.bytecode.object;
-
-        console.log(JSON.stringify({ abi, bytecode }));
-      `;
-
-      const { stdout, stderr } = await execAsync(`node -e "${compilerScript.replace(/"/g, '\\"')}"`);
-
-      if (stderr) {
-        throw new Error(`Compilation script error: ${stderr}`);
       }
 
-      const { abi, bytecode } = JSON.parse(stdout);
-      
+      const compiledContract = output.contracts['Contract.sol'][input.contractName];
+      if (!compiledContract) {
+        throw new Error(`Contract name "${input.contractName}" not found in compiled output. Available contracts: ${Object.keys(output.contracts['Contract.sol']).join(', ')}`);
+      }
+
+      const abi = compiledContract.abi;
+      const bytecode = '0x' + compiledContract.evm.bytecode.object;
+
+      if (!abi || !bytecode) {
+          throw new Error('ABI or bytecode not found in compiled output.');
+      }
+
       return { abi, bytecode };
     } catch (error: any) {
       console.error('Full compilation error:', error);
       throw new Error(error.message || 'An unexpected error occurred during compilation.');
-    } finally {
-      // 4. Clean up the temporary directory
-      await fs.rm(tempDir, { recursive: true, force: true });
     }
   }
 );
