@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { onboardContract } from '@/ai/flows/onboard-contract-flow';
+import { Loader2 } from 'lucide-react';
 
 export default function AdminPage() {
   const [solidityCode, setSolidityCode] = useState('');
@@ -15,7 +17,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleGenerateTemplate = () => {
+  const handleGenerateTemplate = async () => {
     if (!solidityCode || !contractName) {
       toast({
         variant: 'destructive',
@@ -26,17 +28,37 @@ export default function AdminPage() {
     }
     
     setLoading(true);
-    console.log('Generating template for:', contractName);
-    console.log('Solidity Code:', solidityCode);
+    toast({
+      title: 'Generation Started',
+      description: 'The AI is analyzing your smart contract...',
+    });
 
-    // In the next step, we will replace this with a call to our AI flow.
-    setTimeout(() => {
-      toast({
-        title: 'Generation Started',
-        description: 'The AI is analyzing the contract. This is a placeholder for the real flow.',
+    try {
+      const result = await onboardContract({
+        contractName: contractName,
+        solidityCode: solidityCode,
       });
+
+      console.log('AI Analysis Result:', result);
+
+      toast({
+        title: 'Analysis Complete!',
+        description: `Successfully generated template for ${contractName}.`,
+      });
+
+      // In the next step, we will use this 'result' to generate the files.
+      // For now, we'll just log it.
+
+    } catch (error: any) {
+      console.error('Error during AI analysis:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Analysis Failed',
+        description: error.message || 'The AI could not process the contract. Please check the logs.',
+      });
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -65,6 +87,7 @@ export default function AdminPage() {
               placeholder="e.g., Simple Multisig Wallet"
               value={contractName}
               onChange={(e) => setContractName(e.target.value)}
+              disabled={loading}
             />
           </div>
           <div className="space-y-2">
@@ -75,12 +98,13 @@ export default function AdminPage() {
               className="min-h-[300px] font-mono text-xs"
               value={solidityCode}
               onChange={(e) => setSolidityCode(e.target.value)}
+              disabled={loading}
             />
           </div>
         </CardContent>
         <CardFooter>
           <Button onClick={handleGenerateTemplate} disabled={loading} className="w-full">
-            {loading ? 'Analyzing...' : 'Generate Template'}
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing...</> : 'Generate Template'}
           </Button>
         </CardFooter>
       </Card>
