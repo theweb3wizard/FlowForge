@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { onboardContract } from '@/ai/flows/onboard-contract-flow';
 import { compileContract } from '@/ai/flows/compile-solidity-flow';
+import { createContractTemplate } from '@/ai/flows/create-contract-template-flow';
 import { Loader2 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -42,6 +43,10 @@ export default function AdminPage() {
       });
 
       console.log('AI Analysis Result:', metadataResult);
+      toast({
+        title: 'Analysis Complete',
+        description: 'Contract metadata has been extracted.',
+      });
 
       // Step 2: Use the extracted source contract name to compile
       const compilationResult = await compileContract({
@@ -50,14 +55,26 @@ export default function AdminPage() {
       });
 
       console.log('Compilation Result:', compilationResult);
-
       toast({
-        title: 'Analysis & Compilation Complete!',
-        description: `Successfully processed ${templateName}. Check the console for output.`,
+        title: 'Compilation Complete',
+        description: 'ABI and Bytecode have been generated.',
       });
 
-      // In the next step, we will use these results to generate the files.
-      // For now, we'll just log them.
+      // Step 3: Send all the data to the backend to create the files
+      const creationResult = await createContractTemplate({
+        templateName,
+        metadata: metadataResult,
+        compilation: compilationResult,
+      });
+
+      console.log('File Creation Result:', creationResult);
+
+      toast({
+        variant: 'default',
+        title: 'Template Created!',
+        description: `${templateName} is now available for deployment. Please refresh the page.`,
+        className: 'bg-green-100 dark:bg-green-900 border-green-400 dark:border-green-600',
+      });
 
     } catch (error: any) {
       console.error('Error during AI processing:', error);
@@ -114,7 +131,7 @@ export default function AdminPage() {
         </CardContent>
         <CardFooter>
           <Button onClick={handleGenerateTemplate} disabled={loading} className="w-full">
-            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyzing & Compiling...</> : 'Generate Template'}
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing Contract...</> : 'Generate Template'}
           </Button>
         </CardFooter>
       </Card>
