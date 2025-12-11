@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow for compiling Solidity smart contracts.
@@ -12,7 +13,7 @@ import { z } from 'zod';
 import solc from 'solc';
 
 const CompileContractInputSchema = z.object({
-  contractName: z.string().describe('The name of the main contract to compile.'),
+  sourceContractName: z.string().describe('The exact name of the main contract from the source code.'),
   solidityCode: z.string().describe('The full source code of the Solidity smart contract.'),
 });
 export type CompileContractInput = z.infer<typeof CompileContractInputSchema>;
@@ -59,9 +60,9 @@ const compileSolidityFlow = ai.defineFlow(
         }
       }
 
-      const compiledContract = output.contracts['Contract.sol'][input.contractName];
+      const compiledContract = output.contracts['Contract.sol'][input.sourceContractName];
       if (!compiledContract) {
-        throw new Error(`Contract name "${input.contractName}" not found in compiled output. Available contracts: ${Object.keys(output.contracts['Contract.sol']).join(', ')}`);
+        throw new Error(`Contract name "${input.sourceContractName}" not found in compiled output. Available contracts: ${Object.keys(output.contracts['Contract.sol']).join(', ')}`);
       }
 
       const abi = compiledContract.abi;

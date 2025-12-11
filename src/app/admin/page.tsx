@@ -14,16 +14,16 @@ import { Loader2 } from 'lucide-react';
 
 export default function AdminPage() {
   const [solidityCode, setSolidityCode] = useState('');
-  const [contractName, setContractName] = useState('');
+  const [templateName, setTemplateName] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const handleGenerateTemplate = async () => {
-    if (!solidityCode || !contractName) {
+    if (!solidityCode || !templateName) {
       toast({
         variant: 'destructive',
         title: 'Missing Fields',
-        description: 'Please provide both a contract name and the Solidity code.',
+        description: 'Please provide both a template name and the Solidity code.',
       });
       return;
     }
@@ -35,24 +35,25 @@ export default function AdminPage() {
     });
 
     try {
-      // Run both flows in parallel
-      const [metadataResult, compilationResult] = await Promise.all([
-        onboardContract({
-          contractName: contractName,
-          solidityCode: solidityCode,
-        }),
-        compileContract({
-          contractName: contractName,
-          solidityCode: solidityCode,
-        })
-      ]);
+      // Step 1: Get metadata and the source contract name from the AI
+      const metadataResult = await onboardContract({
+        templateName: templateName,
+        solidityCode: solidityCode,
+      });
 
       console.log('AI Analysis Result:', metadataResult);
+
+      // Step 2: Use the extracted source contract name to compile
+      const compilationResult = await compileContract({
+        sourceContractName: metadataResult.sourceContractName,
+        solidityCode: solidityCode,
+      });
+
       console.log('Compilation Result:', compilationResult);
 
       toast({
         title: 'Analysis & Compilation Complete!',
-        description: `Successfully processed ${contractName}. Check the console for output.`,
+        description: `Successfully processed ${templateName}. Check the console for output.`,
       });
 
       // In the next step, we will use these results to generate the files.
@@ -85,17 +86,17 @@ export default function AdminPage() {
         <CardHeader>
           <CardTitle>Contract Onboarding</CardTitle>
           <CardDescription>
-            Provide the Solidity code and the main contract name. The AI will handle the rest.
+            Provide the template display name and the full Solidity code. The AI will handle the rest.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="contractName">Contract Name</Label>
+            <Label htmlFor="templateName">Template Name</Label>
             <Input
-              id="contractName"
-              placeholder="e.g., MultiSigWallet"
-              value={contractName}
-              onChange={(e) => setContractName(e.target.value)}
+              id="templateName"
+              placeholder="e.g., Simple Multi-Sig Wallet"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
               disabled={loading}
             />
           </div>

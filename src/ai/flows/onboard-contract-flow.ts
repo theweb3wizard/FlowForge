@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow for onboarding new smart contract templates.
@@ -18,12 +19,13 @@ const ParameterSchema = z.object({
 });
 
 const OnboardContractInputSchema = z.object({
-  contractName: z.string().describe('The user-provided name for the contract template.'),
+  templateName: z.string().describe('The user-provided display name for the contract template.'),
   solidityCode: z.string().describe('The full source code of the Solidity smart contract.'),
 });
 export type OnboardContractInput = z.infer<typeof OnboardContractInputSchema>;
 
 const OnboardContractOutputSchema = z.object({
+  sourceContractName: z.string().describe("The exact name of the main contract found in the Solidity code, e.g., 'MyContract' for 'contract MyContract { ... }'"),
   description: z.string().describe('A concise, one-sentence description of what the smart contract does. This will be shown on the template card.'),
   icon: z.string().describe('The name of a single, relevant icon from the lucide-react library (e.g., "Coins", "ShieldCheck", "Lock"). Choose the best one that represents the contract\'s purpose.'),
   parameters: z.array(ParameterSchema).describe('An array of objects representing the constructor parameters needed to deploy this contract. Extract this from the constructor in the Solidity code.'),
@@ -39,16 +41,17 @@ const onboarderPrompt = ai.definePrompt({
 
 Analyze the contract's purpose and constructor to generate the required fields.
 
-Contract Name: {{{contractName}}}
+Template Display Name: {{{templateName}}}
 Solidity Code:
 \'\'\'solidity
 {{{solidityCode}}}
 \'\'\'
 
 Based on the code, generate a JSON object that includes:
-1.  A short 'description' of the contract's purpose.
-2.  A single 'icon' name from the lucide-react library that best represents the contract.
-3.  An array of 'parameters' derived ONLY from the contract's constructor. Each parameter object must have a 'name' (camelCase), a 'label' (human-readable), a 'type' ('text', 'number', or 'address'), and a 'placeholder' example.
+1.  The exact 'sourceContractName' of the main smart contract in the file.
+2.  A short 'description' of the contract's purpose.
+3.  A single 'icon' name from the lucide-react library that best represents the contract.
+4.  An array of 'parameters' derived ONLY from the contract's constructor. Each parameter object must have a 'name' (camelCase), a 'label' (human-readable), a 'type' ('text', 'number', or 'address'), and a 'placeholder' example.
 `,
 });
 
