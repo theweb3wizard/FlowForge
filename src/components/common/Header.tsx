@@ -7,7 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
 import { ConnectWalletDialog } from './ConnectWalletDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Wallet, LogOut, Home, LayoutDashboard, Menu, Settings } from 'lucide-react';
+import { Wallet, LogOut, Home, LayoutDashboard, Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from './ThemeToggle';
@@ -26,10 +26,6 @@ const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
           <LayoutDashboard className="mr-3 h-5 w-5" />
           Dashboard
         </Link>
-        <Link href="/admin" className={cn(buttonVariants({ variant: 'ghost' }), commonClasses)}>
-          <Settings className="mr-3 h-5 w-5" />
-          Admin
-        </Link>
       </nav>
     );
   }
@@ -41,9 +37,6 @@ const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
       </Link>
       <Link href="/dashboard" className="text-muted-foreground transition-colors hover:text-foreground">
         Dashboard
-      </Link>
-       <Link href="/admin" className="text-muted-foreground transition-colors hover:text-foreground">
-        Admin
       </Link>
     </nav>
   );
@@ -128,7 +121,7 @@ export function Header() {
                 <SheetHeader>
                    <Link href="/" className="flex items-center space-x-2 mb-6">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className="h-6 w-6 fill-primary">
-                          <path d="M213.6,82.3,144,46.33a15.89,15.89,0,0,0-16.1,0l-69.6,36A16,16,0,0,0,52,96.57V159.43a16,16,0,0,0,6.3,14.27l69.6,36a15.89,15.89,0,0,0,16.1,0l69.6-36a16,16,0,0,0,6.3-14.27V96.57A16,16,0,0,0,213.6,82.3Z" opacity="0.2"></path><path d="M220,96.57a16,16,0,0,0-6.4-14.27l-69.6-36a15.89,15.89,0,0,0-16.1,0l-69.6,36A16,16,0,0,0,52,96.57v62.86a16,16,0,0,0,6.3,14.27l69.6,36a15.89,15.89,0,0,0,16.1,0l69.6-36A16,16,0,0,0,220,159.43ZM128,197.67,64,164.57v-63l64,33.1ZM136,124,66.4,88.4,136,52.83l69.6,35.57Z"></path>
+                          <path d="M213.6,82.3,144,46.33a15.89,15.89,0,0,0-16.1,0l-69.6,36A16,16,0,0,0,52,96.57V159.43a16,16,0,0,0,6.3,14.27l69.6,36a15.89,15.89,0,0,0,16.1,0l-69.6-36a16,16,0,0,0,6.3-14.27V96.57A16,16,0,0,0,213.6,82.3Z" opacity="0.2"></path><path d="M220,96.57a16,16,0,0,0-6.4-14.27l-69.6-36a15.89,15.89,0,0,0-16.1,0l-69.6,36A16,16,0,0,0,52,96.57v62.86a16,16,0,0,0,6.3,14.27l69.6,36a15.89,15.89,0,0,0,16.1,0l69.6-36A16,16,0,0,0,220,159.43ZM128,197.67,64,164.57v-63l64,33.1ZM136,124,66.4,88.4,136,52.83l69.6,35.57Z"></path>
                       </svg>
                       <span className="font-bold font-headline text-lg">FlowForge</span>
                    </Link>
