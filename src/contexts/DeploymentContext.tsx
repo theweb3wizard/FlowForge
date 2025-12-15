@@ -5,10 +5,14 @@ import React, { createContext, useContext, useState, ReactNode, useCallback } fr
 import { type Deployment } from '@/lib/deployments';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import type { Abi } from 'viem';
 
+interface AddDeploymentArgs extends Omit<Deployment, 'timestamp' | 'id' | 'abi'> {
+    abi: Abi;
+}
 interface DeploymentContextType {
   newDeployment: Deployment | null;
-  addDeployment: (deployment: Omit<Deployment, 'timestamp' | 'id'>) => Promise<void>;
+  addDeployment: (deployment: AddDeploymentArgs) => Promise<void>;
 }
 
 const DeploymentContext = createContext<DeploymentContextType | undefined>(undefined);
@@ -18,12 +22,13 @@ export const DeploymentProvider = ({ children }: { children: ReactNode }) => {
   const [newDeployment, setNewDeployment] = useState<Deployment | null>(null);
   const { toast } = useToast();
 
-  const addDeployment = useCallback(async (deployment: Omit<Deployment, 'timestamp' | 'id'>) => {
+  const addDeployment = useCallback(async (deployment: AddDeploymentArgs) => {
     const newDeploymentData = {
       "contractName": deployment.contractName,
       address: deployment.address,
       deployer: deployment.deployer,
       transactionHash: deployment.transactionHash,
+      abi: deployment.abi, // Persist the ABI
     };
 
     const { data, error } = await supabase
