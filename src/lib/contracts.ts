@@ -1,4 +1,4 @@
-import { type Icon as LucideIcon } from 'lucide-react';
+import { type Abi, type Hex } from 'viem';
 
 type Parameter = {
   name: string;
@@ -13,19 +13,23 @@ export type ContractTemplate = {
   description: string;
   icon: string; // lucide-react icon name
   parameters: Parameter[];
+  abi: Abi;
+  bytecode: Hex;
   status: 'live' | 'soon';
 };
 
-export const CONTRACT_TEMPLATES: ContractTemplate[] = [
+// This is now a placeholder. In a fully data-driven system,
+// this array would be fetched from a database (e.g., Supabase).
+export const CONTRACT_TEMPLATES: Omit<ContractTemplate, 'abi' | 'bytecode'>[] = [
   {
     id: 'erc20',
     name: 'Standard Token (ERC-20)',
     description: 'Create a fungible token with a fixed supply. Perfect for utility tokens, digital currencies, and more.',
     icon: 'Coins',
     parameters: [
-      { name: 'tokenName', label: 'Token Name', type: 'text', placeholder: 'e.g., My Awesome Token' },
-      { name: 'tokenSymbol', label: 'Token Symbol', type: 'text', placeholder: 'e.g., MAT' },
-      { name: 'initialSupply', label: 'Initial Supply', type: 'number', placeholder: 'e.g., 1000000' },
+      { name: 'name_', label: 'Token Name', type: 'text', placeholder: 'e.g., My Awesome Token' },
+      { name: 'symbol_', label: 'Token Symbol', type: 'text', placeholder: 'e.g., MAT' },
+      { name: 'initialSupply_', label: 'Initial Supply', type: 'number', placeholder: 'e.g., 1000000' },
     ],
     status: 'live',
   },
@@ -34,11 +38,7 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
     name: 'Token Vesting',
     description: 'Lock up tokens for a specified period, releasing them gradually over time. Essential for team and investor allocations.',
     icon: 'Lock',
-    parameters: [
-      { name: 'beneficiary', label: 'Beneficiary Address', type: 'address', placeholder: '0x...' },
-      { name: 'cliffDuration', label: 'Cliff (in days)', type: 'number', placeholder: 'e.g., 365' },
-      { name: 'vestingDuration', label: 'Total Vesting (in days)', type: 'number', placeholder: 'e.g., 1460' },
-    ],
+    parameters: [],
     status: 'soon',
   },
   {
@@ -46,11 +46,7 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
     name: 'Governance DAO',
     description: 'Deploy a simple DAO contract for on-chain voting and proposal execution. Power your community-led project.',
     icon: 'Vote',
-    parameters: [
-      { name: 'daoName', label: 'DAO Name', type: 'text', placeholder: 'e.g., FlowForge DAO' },
-      { name: 'votingToken', label: 'Voting Token Address', type: 'address', placeholder: '0x... (Your ERC-20 token)' },
-      { name: 'quorumPercentage', label: 'Quorum %', type: 'number', placeholder: 'e.g., 4' },
-    ],
+    parameters: [],
     status: 'soon',
   },
   {
@@ -58,10 +54,7 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
     name: 'Multi-Sig Wallet',
     description: 'A secure wallet that requires multiple signatures to approve transactions. Protect your treasury funds.',
     icon: 'ShieldCheck',
-    parameters: [
-      { name: 'owners', label: 'Owner Addresses (comma-separated)', type: 'text', placeholder: '0x..., 0x..., 0x...' },
-      { name: 'requiredSignatures', label: 'Required Signatures', type: 'number', placeholder: 'e.g., 2' },
-    ],
+    parameters: [ ],
     status: 'soon',
   },
   {
@@ -69,10 +62,7 @@ export const CONTRACT_TEMPLATES: ContractTemplate[] = [
     name: 'Simple Marketplace',
     description: 'A basic marketplace contract for listing and selling NFTs (ERC-721) at a fixed price.',
     icon: 'Store',
-    parameters: [
-      { name: 'marketplaceName', label: 'Marketplace Name', type: 'text', placeholder: 'e.g., The Grand Bazaar' },
-      { name: 'listingFee', label: 'Listing Fee (%)', type: 'number', placeholder: 'e.g., 2.5' },
-    ],
+    parameters: [],
     status: 'soon',
   },
 ];

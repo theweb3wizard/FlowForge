@@ -18,8 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { CheckCircle, AlertTriangle, Loader2, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { useWalletClient, usePublicClient } from 'wagmi';
-import { erc20Bytecode, erc20Abi } from '@/lib/abis/erc20';
-import { isAddress, parseEther, encodeDeployData } from 'viem';
+import { isAddress, parseEther, encodeDeployData, type Abi, type AbiParameter } from 'viem';
 import { useToast } from '@/hooks/use-toast';
 
 type Step = 'form' | 'pending' | 'success' | 'error' | 'no_wallet';
@@ -37,9 +36,9 @@ interface DeploymentWizardProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const generateSchema = (template: ContractTemplate) => {
+const generateSchema = (parameters: ContractTemplate['parameters']) => {
   const shape: { [key: string]: z.ZodType<any, any> } = {};
-  template.parameters.forEach(param => {
+  parameters.forEach(param => {
     let schema: z.ZodString;
     switch (param.type) {
       case 'number':
@@ -56,6 +55,23 @@ const generateSchema = (template: ContractTemplate) => {
   return z.object(shape);
 };
 
+// Generic function to process constructor arguments based on their ABI type
+const processConstructorArgs = (values: Record<string, any>, parameters: readonly AbiParameter[]): any[] => {
+    return parameters.map(param => {
+        const value = values[param.name!];
+        if (param.type.includes('uint')) {
+            // Assumes numeric values intended for contracts are in Ether and need to be converted to wei
+            try {
+                return parseEther(value);
+            } catch {
+                return BigInt(value);
+            }
+        }
+        return value;
+    });
+};
+
+
 export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWizardProps) {
   const [step, setStep] = useState<Step>('form');
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -70,7 +86,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
-  const formSchema = generateSchema(template);
+  const formSchema = generateSchema(template.parameters);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: template.parameters.reduce((acc, param) => ({ ...acc, [param.name]: '' }), {}),
@@ -127,34 +143,30 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
       setStep('error');
       return;
     }
+     if (!template.abi || !template.bytecode) {
+      setErrorMessage('Contract ABI or bytecode is missing for this template.');
+      setStep('error');
+      return;
+    }
 
     setStep('pending');
     setProgress(5);
 
     try {
-      let args: any[];
-      let abi: any;
-      let bytecode: `0x${string}`;
-      let gasLimit: bigint;
+      const constructorDef = template.abi.find(item => item.type === 'constructor');
+      const constructorParams = constructorDef?.inputs as AbiParameter[] | undefined;
+      const args = constructorParams ? processConstructorArgs(values, constructorParams) : [];
 
-      if (template.id === 'erc20') {
-        abi = erc20Abi;
-        bytecode = erc20Bytecode;
-        args = [values.tokenName, values.tokenSymbol, parseEther(values.initialSupply)];
-        gasLimit = 5000000n;
-      } else {
-         throw new Error("Unsupported contract template.");
-      }
-      
       const deployData = encodeDeployData({
-        abi,
-        bytecode,
+        abi: template.abi,
+        bytecode: template.bytecode,
         args,
       });
 
       const hash = await walletClient.sendTransaction({
         data: deployData,
-        gas: gasLimit,
+        // Using an estimated gas limit. For production, this should be dynamically estimated.
+        gas: 5000000n, 
         gasPrice: 1000000000n, // 1 gwei
         to: null, // This signifies contract creation
       });
@@ -201,12 +213,12 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
   };
 
   const handleCopyAbi = async () => {
-    const abi = template.id === 'erc20' ? erc20Abi : [];
+    if (!template.abi) {
+        toast({ variant: "destructive", title: "Error", description: "ABI not available for this template." });
+        return;
+    }
     try {
-      if (!navigator.clipboard) {
-        throw new Error("Clipboard API not available.");
-      }
-      await navigator.clipboard.writeText(JSON.stringify(abi, null, 2));
+      await navigator.clipboard.writeText(JSON.stringify(template.abi, null, 2));
       toast({
         title: "ABI Copied!",
         description: "The contract ABI has been copied to your clipboard.",
@@ -332,8 +344,8 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
                 </Button>
                </div>
                <Button asChild className="w-full">
-                <Link href="/dashboard" onClick={() => onOpenChange(false)}>
-                  View on Dashboard
+                <Link href={`/dashboard/contract/${deployedAddress}`} onClick={() => onOpenChange(false)}>
+                  Interact with Contract
                 </Link>
                </Button>
             </div>

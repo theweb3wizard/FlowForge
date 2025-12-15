@@ -1,18 +1,20 @@
 
 "use client";
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Deployment } from '@/lib/deployments';
-import { notFound } from 'next/navigation';
+import { notFound, useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ExternalLink, Copy } from 'lucide-react';
+import { ExternalLink, Copy, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { ContractInteractionPanel } from '@/components/contract/ContractInteractionPanel';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
+import { isAddress } from 'viem';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface ContractPageProps {
   params: {
@@ -21,28 +23,33 @@ interface ContractPageProps {
 }
 
 export default function ContractPage({ params }: ContractPageProps) {
-  const { address } = use(params);
+  const { address } = params;
   const [deployment, setDeployment] = useState<Deployment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const explorerUrl = process.env.NEXT_PUBLIC_BLOCKDAG_EXPLORER_URL;
+  const router = useRouter();
 
   useEffect(() => {
     const fetchDeployment = async () => {
-      if (!address || !address.startsWith('0x')) {
+      if (!isAddress(address)) {
+        setError("Invalid contract address provided in the URL.");
         setLoading(false);
         return;
       }
 
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error: dbError } = await supabase
         .from('deployments')
         .select('*')
         .eq('address', address)
         .single();
 
-      if (error || !data) {
-        console.error('Error fetching deployment:', error);
+      if (dbError || !data) {
+        console.error('Error fetching deployment:', dbError?.message);
+        // This will trigger the notFound() boundary in the parent component
+        setDeployment(null);
       } else {
         setDeployment(data as Deployment);
       }
@@ -60,6 +67,21 @@ export default function ContractPage({ params }: ContractPageProps) {
         <Skeleton className="h-96 w-full" />
       </div>
     );
+  }
+
+  if (error) {
+    return (
+         <div className="container mx-auto px-4 py-12">
+            <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+            </Alert>
+             <Button onClick={() => router.push('/dashboard')} variant="outline" className="mt-4">
+                Return to Dashboard
+            </Button>
+         </div>
+    )
   }
 
   if (!deployment) {

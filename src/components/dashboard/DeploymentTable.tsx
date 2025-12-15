@@ -19,10 +19,9 @@ import { Copy, ExternalLink, FileJson, ChevronsRight, Rocket } from 'lucide-reac
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
-import { erc20Abi } from '@/lib/abis/erc20';
-import { CONTRACT_TEMPLATES } from '@/lib/contracts';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../ui/pagination';
 import Link from 'next/link';
+import type { Abi } from 'viem';
 
 const PAGE_SIZE = 10;
 
@@ -98,28 +97,17 @@ export default function DeploymentTable() {
   };
 
   const handleCopyAbi = async (contractName: string) => {
-    const template = CONTRACT_TEMPLATES.find(t => t.name === contractName);
-    if (!template) {
-      toast({ variant: 'destructive', title: 'Error', description: 'ABI not found for this contract type.' });
-      return;
-    }
-
-    try {
-      const abi = template.id === 'erc20' ? erc20Abi : [];
-      if (!abi) throw new Error('ABI definition is missing.');
-      
-      await navigator.clipboard.writeText(JSON.stringify(abi, null, 2));
-      toast({
-        title: 'ABI Copied!',
-        description: `The ABI for ${contractName} is on your clipboard.`,
-      });
-    } catch (error) {
-       console.error('Failed to copy ABI:', error);
-       toast({
-         variant: 'destructive',
-         title: 'Copy Failed',
-         description: 'Could not copy ABI to clipboard.',
-       });
+    // In a fully dynamic system, the ABI would be fetched with the deployment record
+    // or from a related 'templates' table. This is a temporary solution.
+    if (contractName.includes('ERC-20')) {
+        const { erc20Abi } = await import('@/lib/abis/erc20');
+        await navigator.clipboard.writeText(JSON.stringify(erc20Abi, null, 2));
+        toast({
+            title: 'ABI Copied!',
+            description: `The ABI for ${contractName} is on your clipboard.`,
+        });
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: 'Dynamic ABI for this contract type is not yet supported.' });
     }
   };
 
@@ -349,5 +337,3 @@ export default function DeploymentTable() {
     </TooltipProvider>
   );
 }
-
-    
