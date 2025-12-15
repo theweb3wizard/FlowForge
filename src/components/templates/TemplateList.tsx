@@ -28,9 +28,9 @@ export default function TemplateList({ templates }: TemplateListProps) {
     return (
         <Alert>
             <Database className="h-4 w-4" />
-            <AlertTitle>No Templates Found</AlertTitle>
+            <AlertTitle>No Templates Available</AlertTitle>
             <AlertDescription>
-                There are currently no contract templates available. Please check back later or add new templates to the database.
+                The public contract library is currently empty. New, pre-audited templates will be added soon. Administrators can add templates via the management panel.
             </AlertDescription>
         </Alert>
     )
