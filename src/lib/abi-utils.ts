@@ -1,4 +1,4 @@
-import type { Abi, AbiFunction } from 'viem';
+import { type Abi, type AbiFunction, type AbiParameter, parseEther } from 'viem';
 
 export interface ParsedAbiFunction {
   name: string;
@@ -45,3 +45,24 @@ export function formatResult(value: any): string {
     }
     return String(value);
   }
+
+// Generic function to process constructor arguments based on their ABI type
+export const processConstructorArgs = (values: Record<string, any>, parameters: readonly AbiParameter[]): any[] => {
+    return parameters.map(param => {
+        const value = values[param.name!];
+        if (param.type.includes('uint')) {
+            // Attempt to parse as ether if it contains a decimal, otherwise treat as a large integer.
+            // This is a common convention for token supplies.
+            try {
+                if (typeof value === 'string' && value.includes('.')) {
+                    return parseEther(value);
+                }
+                return BigInt(value);
+            } catch (e) {
+                 console.error(`Error processing uint value for ${param.name}: ${value}`, e);
+                 return value; // return original value on error
+            }
+        }
+        return value;
+    });
+};

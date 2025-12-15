@@ -18,8 +18,9 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { CheckCircle, AlertTriangle, Loader2, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { useWalletClient, usePublicClient } from 'wagmi';
-import { isAddress, parseEther, encodeDeployData, type Abi, type AbiParameter } from 'viem';
+import { isAddress, encodeDeployData, type AbiParameter } from 'viem';
 import { useToast } from '@/hooks/use-toast';
+import { processConstructorArgs } from '@/lib/abi-utils';
 
 type Step = 'form' | 'pending' | 'success' | 'error' | 'no_wallet';
 
@@ -54,23 +55,6 @@ const generateSchema = (parameters: ContractTemplate['parameters']) => {
   });
   return z.object(shape);
 };
-
-// Generic function to process constructor arguments based on their ABI type
-const processConstructorArgs = (values: Record<string, any>, parameters: readonly AbiParameter[]): any[] => {
-    return parameters.map(param => {
-        const value = values[param.name!];
-        if (param.type.includes('uint')) {
-            // Assumes numeric values intended for contracts are in Ether and need to be converted to wei
-            try {
-                return parseEther(value);
-            } catch {
-                return BigInt(value);
-            }
-        }
-        return value;
-    });
-};
-
 
 export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWizardProps) {
   const [step, setStep] = useState<Step>('form');

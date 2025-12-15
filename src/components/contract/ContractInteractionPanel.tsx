@@ -1,14 +1,14 @@
 
 "use client";
 
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import type { Deployment } from '@/lib/deployments';
 import { parseContractAbi } from '@/lib/abi-utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion } from '@/components/ui/accordion';
 import { FunctionForm } from './FunctionForm';
 import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
-import { Terminal, Loader2 } from 'lucide-react';
+import { Terminal } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import type { Abi } from 'viem';
 
@@ -16,57 +16,13 @@ interface ContractInteractionPanelProps {
   deployment: Deployment;
 }
 
-// In a fully dynamic system, the ABI would be fetched along with the deployment data,
-// for example from a related `contract_templates` table in your database.
-const useContractAbi = (deployment: Deployment) => {
-    const [abi, setAbi] = useState<Abi | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchAbi = async () => {
-            setLoading(true);
-            try {
-                // This is a placeholder for fetching the ABI.
-                // Currently, we only have the ERC20 ABI available.
-                if (deployment.contractName.includes('ERC-20')) {
-                    const { erc20Abi } = await import('@/lib/abis/erc20');
-                    setAbi(erc20Abi as Abi);
-                } else {
-                    // In a real system, you would fetch the ABI from your database
-                    // based on deployment.templateId or similar.
-                    setAbi([]); // Set to empty array if no ABI found
-                }
-            } catch (error) {
-                console.error("Failed to load contract ABI", error);
-                setAbi([]); // Default to empty on error
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchAbi();
-    }, [deployment.contractName]);
-
-    return { abi, loading };
-};
-
-
 export function ContractInteractionPanel({ deployment }: ContractInteractionPanelProps) {
-  const { abi, loading: abiLoading } = useContractAbi(deployment);
+  const abi = useMemo(() => deployment.abi as Abi | undefined, [deployment.abi]);
 
   const { reads, writes } = useMemo(() => {
     if (!abi) return { reads: [], writes: [] };
     return parseContractAbi(abi);
   }, [abi]);
-
-  if (abiLoading) {
-    return (
-        <div className="flex items-center justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <p className="ml-4 text-muted-foreground">Loading Contract Interface...</p>
-        </div>
-    );
-  }
 
   if (!abi || abi.length === 0) {
       return (

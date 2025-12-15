@@ -20,7 +20,10 @@ export type ContractTemplate = {
 
 // This is now a placeholder. In a fully data-driven system,
 // this array would be fetched from a database (e.g., Supabase).
-export const CONTRACT_TEMPLATES: Omit<ContractTemplate, 'abi' | 'bytecode'>[] = [
+// For now, we manually include the abi and bytecode for the live contract.
+import { erc20Abi, erc20Bytecode } from '@/lib/abis/erc20';
+
+export const CONTRACT_TEMPLATES: ContractTemplate[] = [
   {
     id: 'erc20',
     name: 'Standard Token (ERC-20)',
@@ -32,6 +35,8 @@ export const CONTRACT_TEMPLATES: Omit<ContractTemplate, 'abi' | 'bytecode'>[] = 
       { name: 'initialSupply_', label: 'Initial Supply', type: 'number', placeholder: 'e.g., 1000000' },
     ],
     status: 'live',
+    abi: erc20Abi,
+    bytecode: erc20Bytecode,
   },
   {
     id: 'vesting',
@@ -40,6 +45,8 @@ export const CONTRACT_TEMPLATES: Omit<ContractTemplate, 'abi' | 'bytecode'>[] = 
     icon: 'Lock',
     parameters: [],
     status: 'soon',
+    abi: [],
+    bytecode: '0x',
   },
   {
     id: 'governance',
@@ -48,6 +55,8 @@ export const CONTRACT_TEMPLATES: Omit<ContractTemplate, 'abi' | 'bytecode'>[] = 
     icon: 'Vote',
     parameters: [],
     status: 'soon',
+    abi: [],
+    bytecode: '0x',
   },
   {
     id: 'multisig',
@@ -56,6 +65,8 @@ export const CONTRACT_TEMPLATES: Omit<ContractTemplate, 'abi' | 'bytecode'>[] = 
     icon: 'ShieldCheck',
     parameters: [ ],
     status: 'soon',
+    abi: [],
+    bytecode: '0x',
   },
   {
     id: 'simple-marketplace',
@@ -64,5 +75,7 @@ export const CONTRACT_TEMPLATES: Omit<ContractTemplate, 'abi' | 'bytecode'>[] = 
     icon: 'Store',
     parameters: [],
     status: 'soon',
+    abi: [],
+    bytecode: '0x',
   },
 ];

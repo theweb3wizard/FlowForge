@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { isAddress } from 'viem';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { erc20Abi } from '@/lib/abis/erc20';
 
 interface ContractPageProps {
   params: {
@@ -48,10 +49,18 @@ export default function ContractPage({ params }: ContractPageProps) {
 
       if (dbError || !data) {
         console.error('Error fetching deployment:', dbError?.message);
-        // This will trigger the notFound() boundary in the parent component
         setDeployment(null);
       } else {
-        setDeployment(data as Deployment);
+        // This is the temporary, last piece of hardcoded logic.
+        // In the future, the ABI will be fetched from a `contract_templates` table
+        // based on a template ID stored in the `deployments` record.
+        const deploymentData = data as Deployment;
+        if (deploymentData.contractName.includes('ERC-20')) {
+            deploymentData.abi = erc20Abi;
+        } else {
+            deploymentData.abi = []; // Default to empty ABI if unknown
+        }
+        setDeployment(deploymentData);
       }
       setLoading(false);
     };

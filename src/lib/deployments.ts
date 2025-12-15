@@ -1,3 +1,4 @@
+import type { Abi } from "viem";
 
 export type Deployment = {
   id: number;
@@ -6,4 +7,5 @@ export type Deployment = {
   deployer: string;
   timestamp: string;
   transactionHash?: string;
+  abi?: Abi; // ABI is now part of the deployment data
 };
