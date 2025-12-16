@@ -38,6 +38,7 @@ interface DeploymentWizardProps {
 }
 
 const generateSchema = (parameters: ContractTemplate['parameters']) => {
+  if (!parameters) return z.object({});
   const shape: { [key: string]: z.ZodType<any, any> } = {};
   parameters.forEach(param => {
     let schema: z.ZodString;
@@ -73,7 +74,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
   const formSchema = generateSchema(template.parameters);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: template.parameters.reduce((acc, param) => ({ ...acc, [param.name]: '' }), {}),
+    defaultValues: template.parameters?.reduce((acc, param) => ({ ...acc, [param.name]: '' }), {}),
     mode: 'onChange',
   });
 
@@ -122,16 +123,28 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
   }, [step, txHash]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    // --- Hardening and Validation Checks ---
+    if (template.status !== 'live') {
+      setErrorMessage('This contract template is not available for deployment.');
+      setStep('error');
+      return;
+    }
     if (!walletClient || !publicClient) {
       setErrorMessage('Wallet client not available. Please ensure your wallet is connected.');
       setStep('error');
       return;
     }
-     if (!template.abi || !template.bytecode) {
-      setErrorMessage('Contract ABI or bytecode is missing for this template.');
+     if (!template.abi || template.abi.length === 0) {
+      setErrorMessage('Contract ABI is missing for this template. Cannot deploy.');
       setStep('error');
       return;
     }
+    if (!template.bytecode || template.bytecode === '0x') {
+      setErrorMessage('Contract bytecode is missing for this template. Cannot deploy.');
+      setStep('error');
+      return;
+    }
+    // --- End Validation ---
 
     setStep('pending');
     setProgress(5);
@@ -170,10 +183,11 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
         const newAddress = receipt.contractAddress;
         setDeployedAddress(newAddress);
         await addDeployment({
-          "contractName": template.name,
+          contractName: template.name,
           address: newAddress,
           deployer: address!,
           transactionHash: hash,
+          abi: template.abi,
         });
         setStep('success');
       } else {
@@ -242,7 +256,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                {template.parameters.map(param => (
+                {template.parameters?.map(param => (
                   <FormField
                     key={param.name}
                     control={form.control}

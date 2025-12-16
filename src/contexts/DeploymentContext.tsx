@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import type { Abi } from 'viem';
 
+// Ensure that when adding a deployment, the ABI is always required.
 interface AddDeploymentArgs extends Omit<Deployment, 'timestamp' | 'id' | 'abi'> {
     abi: Abi;
 }
@@ -23,8 +24,9 @@ export const DeploymentProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   const addDeployment = useCallback(async (deployment: AddDeploymentArgs) => {
+    // This object includes all required fields for a valid database insert.
     const newDeploymentData = {
-      "contractName": deployment.contractName,
+      contractName: deployment.contractName,
       address: deployment.address,
       deployer: deployment.deployer,
       transactionHash: deployment.transactionHash,
