@@ -19,28 +19,28 @@ export function ConstructorForm({ template, onArgsChange, onValidChange }: Const
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const constructor = parseConstructor(template.abi);
+  const constructorInputs = Array.isArray(constructor.inputs) ? constructor.inputs : [];
 
   // Initialize form values
   useEffect(() => {
     const initialValues: Record<string, any> = {};
-    if (Array.isArray(constructor.inputs)) {
-      constructor.inputs.forEach((param) => {
-        initialValues[param.name] = '';
-      });
-    }
+    constructorInputs.forEach((param) => {
+      initialValues[param.name] = '';
+    });
     setFormValues(initialValues);
-    onValidChange(!constructor.hasConstructor);
-  }, [template, constructor.hasConstructor, constructor.inputs, onValidChange]);
+    onValidChange(!constructor.hasConstructor || constructorInputs.length === 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template, constructor.hasConstructor, JSON.stringify(constructorInputs)]);
 
   // Validate and emit changes
   useEffect(() => {
-    if (!Array.isArray(constructor.inputs)) {
-        onArgsChange([]);
-        onValidChange(true);
-        return;
+    if (constructorInputs.length === 0) {
+      onArgsChange([]);
+      onValidChange(true);
+      return;
     }
-    const args = constructor.inputs.map((param) => formValues[param.name]);
-    const allFilled = constructor.inputs.every((param) => {
+    const args = constructorInputs.map((param) => formValues[param.name]);
+    const allFilled = constructorInputs.every((param) => {
       const value = formValues[param.name];
       return value !== '' && value !== null && value !== undefined;
     });
@@ -49,7 +49,8 @@ export function ConstructorForm({ template, onArgsChange, onValidChange }: Const
     
     onArgsChange(args);
     onValidChange(allFilled && !hasErrors);
-  }, [formValues, errors, constructor.inputs, onArgsChange, onValidChange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formValues, errors, JSON.stringify(constructorInputs)]);
 
   const handleChange = (paramName: string, paramType: string, value: string) => {
     setFormValues((prev) => ({ ...prev, [paramName]: value }));
@@ -69,7 +70,7 @@ export function ConstructorForm({ template, onArgsChange, onValidChange }: Const
     }
   };
 
-  if (!constructor.hasConstructor) {
+  if (!constructor.hasConstructor || constructorInputs.length === 0) {
     return (
       <div className="text-sm text-muted-foreground p-4 bg-muted/50 rounded-lg">
         This contract has no constructor parameters.
@@ -79,7 +80,7 @@ export function ConstructorForm({ template, onArgsChange, onValidChange }: Const
 
   return (
     <div className="space-y-4">
-      {constructor.inputs.map((param, index) => {
+      {constructorInputs.map((param, index) => {
         const inputType = getInputType(param.type);
         const placeholder = getPlaceholder(param);
         const error = errors[param.name];

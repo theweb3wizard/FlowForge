@@ -60,7 +60,7 @@ export function useDeployContract() {
       const networkResult = await detectNetwork(provider);
       
       if (!networkResult.isCorrectNetwork) {
-        throw new Error(networkResult.error || 'Please connect to BlockDAG Testnet');
+        throw new Error(networkResult.error || 'Please connect to a supported network.');
       }
 
       const network = networkResult.config.type as NetworkType;
@@ -84,8 +84,9 @@ export function useDeployContract() {
       // STEP 3: Validate constructor arguments
       setProgress(40);
       
+      const templateParams = Array.isArray(template.parameters) ? template.parameters : [];
       const processedArgs = constructorArgs.map((arg, index) => {
-        const param = template.parameters[index];
+        const param = templateParams[index];
         if (!param) return arg;
         const paramType = param.type;
         
@@ -132,6 +133,10 @@ export function useDeployContract() {
       setDeploymentStatus('saving');
       setProgress(90);
 
+      const constructorArgsToSave = Object.fromEntries(
+        templateParams.map((param, i) => [param.name, constructorArgs[i] || ''])
+      );
+
       const deployment = await createDeployment({
         template_id: template.id,
         contract_name: contractName,
@@ -140,9 +145,7 @@ export function useDeployContract() {
         network: network,
         chain_id: chainId,
         transaction_hash: contract.deployTransaction.hash,
-        constructor_args: Object.fromEntries(
-          (template.parameters || []).map((param, i) => [param.name, constructorArgs[i]])
-        ),
+        constructor_args: constructorArgsToSave,
         deployment_status: 'success',
       });
 
