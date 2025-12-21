@@ -40,7 +40,7 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
   try {
     if (!provider) {
       return {
-        config: NETWORK_CONFIGS['blockdag-testnet'],
+        config: NETWORK_CONFIGS['local'],
         isCorrectNetwork: false,
         error: 'No wallet provider detected',
       };
@@ -56,7 +56,7 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
 
     if (!config) {
       return {
-        config: NETWORK_CONFIGS['blockdag-testnet'],
+        config: NETWORK_CONFIGS['local'],
         isCorrectNetwork: false,
         error: `Unsupported network (Chain ID: ${chainId})`,
       };
@@ -70,13 +70,19 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
       };
     }
 
+    // Determine the target network from environment variables
+    const targetChainId = parseInt(process.env.NEXT_PUBLIC_BLOCKDAG_CHAIN_ID || '31337');
+    const isCorrect = config.chainId === targetChainId;
+
     return {
       config,
-      isCorrectNetwork: true,
+      isCorrectNetwork: isCorrect,
+      error: isCorrect ? undefined : `Please switch to ${getNetworkByChainId(targetChainId)?.name || 'the correct network'} in your wallet.`
     };
   } catch (error) {
+    const targetChainId = parseInt(process.env.NEXT_PUBLIC_BLOCKDAG_CHAIN_ID || '31337');
     return {
-      config: NETWORK_CONFIGS['blockdag-testnet'],
+      config: getNetworkByChainId(targetChainId) || NETWORK_CONFIGS['local'],
       isCorrectNetwork: false,
       error: error instanceof Error ? error.message : 'Network detection failed',
     };
