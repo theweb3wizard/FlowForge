@@ -95,7 +95,11 @@ export function useContractInteraction(contractAddress: string, abi: any[]) {
       const tx = await contract[functionName](...args, txOptions);
       
       // Wait for confirmation
-      const receipt = await tx.wait(1);
+      const receipt = await provider.waitForTransaction(tx.hash, 1, 120000); // 1 conf, 2 min timeout
+
+      if (receipt.status === 0) {
+        throw new Error('Transaction was reverted by the network.');
+      }
 
       setIsLoading(false);
       setLoadingFunction(null);

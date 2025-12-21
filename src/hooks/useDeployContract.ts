@@ -16,10 +16,21 @@ interface DeploymentResult {
   error?: string;
 }
 
+type DeploymentStatus = 
+  | 'idle' 
+  | 'preparing' 
+  | 'signing' 
+  | 'deploying' 
+  | 'confirming' 
+  | 'saving' 
+  | 'success' 
+  | 'error';
+
+
 export function useDeployContract() {
   const { address, provider } = useWallet();
   const [isDeploying, setIsDeploying] = useState(false);
-  const [deploymentStatus, setDeploymentStatus] = useState<'idle' | 'preparing' | 'signing' | 'deploying' | 'saving' | 'success' | 'error'>('idle');
+  const [deploymentStatus, setDeploymentStatus] = useState<DeploymentStatus>('idle');
   const [progress, setProgress] = useState(0);
 
   /**
@@ -37,6 +48,9 @@ export function useDeployContract() {
     setIsDeploying(true);
     setDeploymentStatus('preparing');
     setProgress(10);
+
+    let contract: ethers.Contract | undefined;
+    let transactionHash: string | undefined;
 
     try {
       // STEP 1: Detect and validate network
@@ -96,16 +110,22 @@ export function useDeployContract() {
       setProgress(50);
       
       const overrides = {
-        gasLimit: 3000000, // Explicitly set a generous gas limit
+        gasLimit: 3000000, 
       };
 
-      const contract = await factory.deploy(...processedArgs, overrides);
+      contract = await factory.deploy(...processedArgs, overrides);
+      transactionHash = contract.deployTransaction.hash;
       
-      setDeploymentStatus('deploying');
+      setDeploymentStatus('confirming');
       setProgress(60);
 
-      await contract.deployTransaction.wait(1);
+      // Robustly wait for confirmation with a timeout
+      const receipt = await provider.waitForTransaction(transactionHash, 1, 120000); // 1 confirmation, 2 min timeout
 
+      if (receipt.status === 0) {
+        throw new Error('Transaction was reverted by the network.');
+      }
+      
       setProgress(80);
 
       // STEP 5: Save to Supabase
