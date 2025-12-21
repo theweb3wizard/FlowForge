@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
-import { DeploymentProvider } from '@/contexts/DeploymentContext';
 import { Web3Provider } from '@/components/common/Web3Provider';
 import { ThemeProvider } from '@/components/common/ThemeProvider';
 
@@ -50,7 +49,6 @@ export default function RootLayout({
             disableTransitionOnChange
         >
             <Web3Provider>
-              <DeploymentProvider>
                 <div vaul-drawer-wrapper="">
                   <div className="relative flex min-h-screen flex-col bg-background">
                     <Header />
@@ -59,7 +57,6 @@ export default function RootLayout({
                   </div>
                 </div>
                 <Toaster />
-              </DeploymentProvider>
             </Web3Provider>
         </ThemeProvider>
       </body>

@@ -1,10 +1,9 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import type { ContractTemplate } from '@/lib/contracts';
 import { TemplateCard } from './TemplateCard';
-import { DeploymentWizard } from '../deployment/DeploymentWizard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Database, Loader2 } from 'lucide-react';
 
@@ -13,7 +12,6 @@ interface TemplateListProps {
 }
 
 export default function TemplateList({ templates }: TemplateListProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState<ContractTemplate | null>(null);
 
   if (!templates) {
     return (
@@ -26,13 +24,13 @@ export default function TemplateList({ templates }: TemplateListProps) {
 
   if (templates.length === 0) {
     return (
-        <Alert>
-            <Database className="h-4 w-4" />
-            <AlertTitle>No Templates Available</AlertTitle>
-            <AlertDescription>
-                The public contract library is currently empty. New, pre-audited templates will be added soon. Administrators can add templates via the management panel.
-            </AlertDescription>
-        </Alert>
+      <Alert>
+        <Database className="h-4 w-4" />
+        <AlertTitle>No Templates Available</AlertTitle>
+        <AlertDescription>
+          The public contract library is currently empty. New, pre-audited templates will be added soon. Administrators can add templates via the management panel.
+        </AlertDescription>
+      </Alert>
     )
   }
 
@@ -44,24 +42,13 @@ export default function TemplateList({ templates }: TemplateListProps) {
             key={template.id}
             template={template}
             onSelect={() => {
-              if (template.status === 'live') {
-                setSelectedTemplate(template);
-              }
+              // Deployment functionality is removed for now.
+              // This is where a new workflow will begin.
+              console.log("Selected template:", template.name);
             }}
           />
         ))}
       </div>
-      {selectedTemplate && (
-        <DeploymentWizard
-          template={selectedTemplate}
-          open={!!selectedTemplate}
-          onOpenChange={(isOpen) => {
-            if (!isOpen) {
-              setSelectedTemplate(null);
-            }
-          }}
-        />
-      )}
     </>
   );
 }

@@ -15,7 +15,7 @@ interface TemplateCardProps {
 
 export function TemplateCard({ template, onSelect, className }: TemplateCardProps) {
   const Icon = LucideIcons[template.icon as keyof typeof LucideIcons] || LucideIcons.FileCode;
-  const isDisabled = template.status === 'soon';
+  const isDisabled = template.status !== 'live';
 
   return (
     <Card className={cn("flex flex-col h-full transition-transform transform hover:-translate-y-1 hover:shadow-lg", className)}>
@@ -29,7 +29,7 @@ export function TemplateCard({ template, onSelect, className }: TemplateCardProp
             {template.description}
           </CardDescription>
         </div>
-        {isDisabled && <Badge variant="outline">Coming Soon</Badge>}
+        {template.status !== 'live' && <Badge variant="outline">{template.status}</Badge>}
       </CardHeader>
       <CardContent className="flex-1" />
       <CardFooter>
@@ -38,7 +38,7 @@ export function TemplateCard({ template, onSelect, className }: TemplateCardProp
           disabled={isDisabled}
           className="w-full bg-accent hover:bg-accent/90 text-accent-foreground hover:shadow-glow-accent transition-shadow duration-300 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
         >
-          {isDisabled ? 'Coming Soon' : 'Deploy Now'}
+          {isDisabled ? 'Coming Soon' : 'View Details'}
           {!isDisabled && <ArrowRight className="ml-2 h-4 w-4" />}
         </Button>
       </CardFooter>

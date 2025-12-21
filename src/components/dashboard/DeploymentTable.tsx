@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useDeployments, Deployment } from '@/contexts/DeploymentContext';
 import { supabase } from '@/lib/supabase';
 import {
   Table,
@@ -21,12 +20,21 @@ import { Skeleton } from '../ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '../ui/pagination';
 import Link from 'next/link';
-import type { Abi } from 'viem';
 
 const PAGE_SIZE = 10;
 
+// Simplified Deployment type as we removed the official definition
+type Deployment = {
+    id: number;
+    contractName: string;
+    address: string;
+    deployer: string;
+    timestamp: string;
+    transactionHash?: string;
+    abi?: any;
+};
+
 export default function DeploymentTable() {
-  const { newDeployment } = useDeployments();
   const { toast } = useToast();
   const explorerUrl = process.env.NEXT_PUBLIC_BLOCKDAG_EXPLORER_URL;
   
@@ -73,20 +81,6 @@ export default function DeploymentTable() {
     fetchDeployments();
   }, [currentPage, toast]);
 
-  useEffect(() => {
-    if (newDeployment) {
-        if (currentPage === 1) {
-            setDeployments(prev => [newDeployment, ...prev.slice(0, PAGE_SIZE - 1)]);
-            setTotalCount(prev => prev + 1);
-        } else {
-            toast({
-                title: "New Deployment Created",
-                description: "A new contract has been deployed. Go to the first page to see it.",
-            });
-        }
-    }
-  }, [newDeployment, currentPage, toast]);
-
 
   const copyToClipboard = (text: string, entity: string) => {
     navigator.clipboard.writeText(text);
@@ -96,18 +90,15 @@ export default function DeploymentTable() {
     });
   };
 
-  const handleCopyAbi = async (contractName: string) => {
-    // In a fully dynamic system, the ABI would be fetched with the deployment record
-    // or from a related 'templates' table. This is a temporary solution.
-    if (contractName.includes('ERC-20')) {
-        const { erc20Abi } = await import('@/lib/abis/erc20');
-        await navigator.clipboard.writeText(JSON.stringify(erc20Abi, null, 2));
+  const handleCopyAbi = async (deployment: Deployment) => {
+    if (deployment.abi) {
+        await navigator.clipboard.writeText(JSON.stringify(deployment.abi, null, 2));
         toast({
             title: 'ABI Copied!',
-            description: `The ABI for ${contractName} is on your clipboard.`,
+            description: `The ABI for ${deployment.contractName} is on your clipboard.`,
         });
     } else {
-      toast({ variant: 'destructive', title: 'Error', description: 'Dynamic ABI for this contract type is not yet supported.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'ABI not found for this deployment.' });
     }
   };
 
@@ -136,10 +127,7 @@ export default function DeploymentTable() {
         <CardContent className="p-8 text-center text-muted-foreground flex flex-col items-center gap-4">
           <Rocket className="h-12 w-12 text-primary" />
           <h3 className="text-xl font-semibold text-foreground">No Deployments Yet</h3>
-          <p>It looks like you haven't deployed any contracts. Get started by deploying your first one!</p>
-          <Button asChild>
-            <Link href="/">Deploy First Contract</Link>
-          </Button>
+          <p>It looks like no contracts have been deployed yet.</p>
         </CardContent>
       );
     }
@@ -203,7 +191,7 @@ export default function DeploymentTable() {
                         )}
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleCopyAbi(dep.contractName)}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleCopyAbi(dep)}>
                                 <FileJson className="h-4 w-4" />
                                 </Button>
                             </TooltipTrigger>
@@ -212,12 +200,12 @@ export default function DeploymentTable() {
                          <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                                    <Link href={`/dashboard/contract/${dep.address}`}>
-                                        <ChevronsRight className="h-4 w-4" />
-                                    </Link>
+                                    <span className="cursor-not-allowed">
+                                        <ChevronsRight className="h-4 w-4 text-muted-foreground" />
+                                    </span>
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent><p>Interact with Contract</p></TooltipContent>
+                            <TooltipContent><p>Interaction Disabled</p></TooltipContent>
                         </Tooltip>
                         </div>
                     </TableCell>
@@ -238,9 +226,9 @@ export default function DeploymentTable() {
                         <p className="font-semibold">{dep.contractName}</p>
                         <div className="flex items-center -mt-2 -mr-2">
                         <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                            <Link href={`/dashboard/contract/${dep.address}`}>
-                                <ChevronsRight className="h-4 w-4" />
-                            </Link>
+                            <span className="cursor-not-allowed">
+                                <ChevronsRight className="h-4 w-4 text-muted-foreground" />
+                            </span>
                         </Button>
                         </div>
                     </div>
@@ -256,7 +244,7 @@ export default function DeploymentTable() {
                                 </a>
                             </Button>
                         )}
-                        <Button variant="outline" size="sm" onClick={() => handleCopyAbi(dep.contractName)}>
+                        <Button variant="outline" size="sm" onClick={() => handleCopyAbi(dep)}>
                             <FileJson className="mr-2 h-3 w-3" /> Copy ABI
                         </Button>
                      </div>
