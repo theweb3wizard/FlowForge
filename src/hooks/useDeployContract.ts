@@ -56,8 +56,12 @@ export function useDeployContract() {
 
       const signer = await provider.getSigner();
 
-      // MONKEY-PATCH: Replace PUSH0 (0x5f) with PUSH1 00 (0x6000)
-      const patchedBytecode = template.bytecode.replaceAll('5f', '6000');
+      // MONKEY-PATCH: Add 0x prefix if missing and replace PUSH0 (0x5f) with PUSH1 00 (0x6000)
+      const bytecodeWithPrefix = template.bytecode.startsWith('0x')
+        ? template.bytecode
+        : `0x${template.bytecode}`;
+      const patchedBytecode = bytecodeWithPrefix.replaceAll('5f', '6000');
+
 
       const factory = new ethers.ContractFactory(
         template.abi,
@@ -70,10 +74,12 @@ export function useDeployContract() {
       setProgress(40);
       
       const processedArgs = constructorArgs.map((arg, index) => {
-        const paramType = template.parameters[index]?.type;
+        const param = template.parameters[index];
+        if (!param) return arg;
+        const paramType = param.type;
         
         if (paramType?.startsWith('uint') || paramType?.startsWith('int')) {
-          return ethers.BigNumber.from(arg);
+           return ethers.BigNumber.from(arg);
         }
         if (paramType === 'bool') {
           return arg === 'true' || arg === true;
@@ -82,7 +88,8 @@ export function useDeployContract() {
           try {
             return JSON.parse(arg);
           } catch {
-            return arg;
+            // Handle cases where array might not be valid JSON
+             return arg.split(',').map(item => item.trim());
           }
         }
         return arg;
@@ -142,23 +149,27 @@ export function useDeployContract() {
       let errorMessage = 'An unknown error occurred during deployment.';
       
       if (typeof error === 'object' && error !== null) {
-        if ('code' in error && (error.code === 4001 || error.code === 'ACTION_REJECTED')) {
-          errorMessage = 'Transaction rejected by user.';
-        } else if ('reason' in error && typeof error.reason === 'string') {
-          errorMessage = error.reason;
-        } else if ('message' in error && typeof error.message === 'string') {
-          errorMessage = error.message;
-        } else if ('error' in error && typeof error.error === 'object' && error.error !== null && 'message' in error.error) {
-           errorMessage = (error.error as any).message;
+        // Handle ethers-specific error structures
+        if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
+            errorMessage = 'Transaction rejected by user.';
+        } else if (error.reason) {
+            errorMessage = error.reason;
+        } else if (error.data?.message) {
+            errorMessage = error.data.message;
+        } else if (error.message) {
+            errorMessage = error.message;
         } else {
-          const errorString = JSON.stringify(error);
-          if (errorString !== '{}') {
-            errorMessage = errorString;
-          }
+           // Fallback for unexpected error shapes
+           try {
+             errorMessage = JSON.stringify(error);
+           } catch {
+             errorMessage = 'An un-serializable error occurred.'
+           }
         }
       } else if (typeof error === 'string') {
         errorMessage = error;
       }
+
 
       return {
         success: false,
