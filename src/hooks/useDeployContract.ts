@@ -56,20 +56,16 @@ export function useDeployContract() {
       setProgress(30);
 
       const signer = await provider.getSigner();
-
-      // MONKEY-PATCH: Add 0x prefix if missing and replace PUSH0 (0x5f) with PUSH1 00 (0x6000)
+      
       const bytecodeWithPrefix = template.bytecode.startsWith('0x')
         ? template.bytecode
         : `0x${template.bytecode}`;
-      const patchedBytecode = bytecodeWithPrefix.replaceAll('5f', '6000');
-
 
       const factory = new ethers.ContractFactory(
         template.abi,
-        patchedBytecode,
+        bytecodeWithPrefix,
         signer
       );
-      
 
       // STEP 3: Validate constructor arguments
       setProgress(40);
@@ -89,7 +85,6 @@ export function useDeployContract() {
           try {
             return JSON.parse(arg);
           } catch {
-            // Handle cases where array might not be valid JSON
              return arg.split(',').map(item => item.trim());
           }
         }
@@ -99,8 +94,12 @@ export function useDeployContract() {
       // STEP 4: Deploy contract
       setDeploymentStatus('signing');
       setProgress(50);
+      
+      const overrides = {
+        gasLimit: 3000000, // Explicitly set a generous gas limit
+      };
 
-      const contract = await factory.deploy(...processedArgs);
+      const contract = await factory.deploy(...processedArgs, overrides);
       
       setDeploymentStatus('deploying');
       setProgress(60);
