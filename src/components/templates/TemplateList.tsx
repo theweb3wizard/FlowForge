@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { ContractTemplate } from '@/lib/contracts';
 import { TemplateCard } from './TemplateCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -12,6 +12,7 @@ interface TemplateListProps {
 }
 
 export default function TemplateList({ templates }: TemplateListProps) {
+  const [selectedTemplate, setSelectedTemplate] = useState<ContractTemplate | null>(null);
 
   if (!templates) {
     return (
@@ -24,7 +25,7 @@ export default function TemplateList({ templates }: TemplateListProps) {
 
   if (templates.length === 0) {
     return (
-      <Alert>
+       <Alert>
         <Database className="h-4 w-4" />
         <AlertTitle>No Templates Available</AlertTitle>
         <AlertDescription>
@@ -42,9 +43,8 @@ export default function TemplateList({ templates }: TemplateListProps) {
             key={template.id}
             template={template}
             onSelect={() => {
-              // Deployment functionality is removed for now.
-              // This is where a new workflow will begin.
-              console.log("Selected template:", template.name);
+              // Deployment functionality is removed.
+              console.log("Selected template (deployment disabled):", template.name);
             }}
           />
         ))}
