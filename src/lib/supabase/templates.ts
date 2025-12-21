@@ -9,7 +9,6 @@ export async function getActiveTemplates(): Promise<ContractTemplate[]> {
   const { data, error } = await supabase
     .from('contract_templates')
     .select('*')
-    .eq('status', 'active')
     .order('created_at', { ascending: false });
 
   if (error) {
