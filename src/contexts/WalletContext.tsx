@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import {
   useAccount,
   useConnect,
@@ -59,7 +59,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const { address, isConnected } = useAccount();
   const { connectors, connect, error } = useConnect();
   const { disconnect } = useDisconnect();
-  const { toast } = useToast();
 
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
@@ -78,15 +77,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const handleConnect: WalletContextType['connect'] = (args) => {
     connect(args, {
       onSuccess: (data) => {
-        toast({
-          title: "Wallet Connected",
+        toast.success("Wallet Connected", {
           description: `Address: ${data.accounts[0].slice(0, 6)}...${data.accounts[0].slice(-4)}`,
         });
       },
       onError: (error) => {
-        toast({
-          variant: "destructive",
-          title: "Connection Failed",
+        toast.error("Connection Failed", {
           description: error.message,
         });
       }
@@ -96,9 +92,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const handleDisconnect: WalletContextType['disconnect'] = () => {
     disconnect(undefined, {
       onSuccess: () => {
-        toast({
-          title: "Wallet Disconnected",
-        });
+        toast.success("Wallet Disconnected");
       }
     });
   };
