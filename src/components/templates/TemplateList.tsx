@@ -2,10 +2,10 @@
 "use client";
 
 import React, { useState } from 'react';
-import type { ContractTemplate } from '@/lib/contracts';
 import { TemplateCard } from './TemplateCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Database, Loader2 } from 'lucide-react';
+import type { ContractTemplate } from '@/types/template';
 
 interface TemplateListProps {
   templates: ContractTemplate[];
@@ -35,6 +35,12 @@ export default function TemplateList({ templates }: TemplateListProps) {
     )
   }
 
+  const handleSelect = (template: ContractTemplate) => {
+    // V1: No deployment wizard. This will be implemented in Phase 2.
+    console.log("Template selected:", template.name);
+    // setSelectedTemplate(template);
+  }
+
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -42,10 +48,7 @@ export default function TemplateList({ templates }: TemplateListProps) {
           <TemplateCard
             key={template.id}
             template={template}
-            onSelect={() => {
-              // Deployment functionality is removed.
-              console.log("Selected template (deployment disabled):", template.name);
-            }}
+            onSelect={() => handleSelect(template)}
           />
         ))}
       </div>

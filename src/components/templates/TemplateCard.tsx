@@ -2,10 +2,10 @@ import React from 'react';
 import * as LucideIcons from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { type ContractTemplate } from '@/lib/contracts';
 import { cn } from '@/lib/utils';
 import { ArrowRight } from 'lucide-react';
 import { Badge } from '../ui/badge';
+import type { ContractTemplate } from '@/types/template';
 
 interface TemplateCardProps {
   template: ContractTemplate;
@@ -15,7 +15,7 @@ interface TemplateCardProps {
 
 export function TemplateCard({ template, onSelect, className }: TemplateCardProps) {
   const Icon = LucideIcons[template.icon as keyof typeof LucideIcons] || LucideIcons.FileCode;
-  const isDisabled = template.status !== 'live';
+  const isDisabled = template.status !== 'active';
 
   return (
     <Card className={cn("flex flex-col h-full transition-transform transform hover:-translate-y-1 hover:shadow-lg", className)}>
@@ -29,7 +29,7 @@ export function TemplateCard({ template, onSelect, className }: TemplateCardProp
             {template.description}
           </CardDescription>
         </div>
-        {template.status !== 'live' && <Badge variant="outline">{template.status}</Badge>}
+        {template.status !== 'active' && <Badge variant="outline">{template.status}</Badge>}
       </CardHeader>
       <CardContent className="flex-1" />
       <CardFooter>
