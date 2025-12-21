@@ -31,9 +31,9 @@ export function AllDeployments() {
 
     // Subscribe to real-time updates
     const channel = subscribeToDeployments((payload) => {
-      if (payload.eventType === 'INSERT' && payload.new.deployment_status === 'success') {
-        // A bit inefficient to refetch all, but good enough for now
-        // A better implementation would find the new record and join the template data client-side
+      // Refetch on any insert or update to the deployments table
+      // A more optimized approach would be to update state locally, but this is simpler and effective.
+      if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') && payload.new.deployment_status === 'success') {
         fetchDeployments();
       }
     });
