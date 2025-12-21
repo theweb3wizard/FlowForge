@@ -149,6 +149,12 @@ export function useDeployContract() {
           errorMessage = error.message;
         } else if ('error' in error && typeof error.error === 'object' && error.error !== null && 'message' in error.error) {
            errorMessage = (error.error as any).message;
+        } else {
+          // Fallback to stringifying the object if no known properties are found
+          const errorString = JSON.stringify(error);
+          if (errorString !== '{}') {
+            errorMessage = errorString;
+          }
         }
       } else if (typeof error === 'string') {
         errorMessage = error;
