@@ -23,7 +23,7 @@ export const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
     isSupported: false, // Enable when mainnet launches
   },
   'local': {
-    chainId: 1337,
+    chainId: 31337,
     name: 'Local Network',
     type: 'local',
     rpcUrl: 'http://127.0.0.1:8545',
@@ -40,7 +40,7 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
   try {
     if (!provider) {
       return {
-        config: NETWORK_CONFIGS['local'],
+        config: null,
         isCorrectNetwork: false,
         error: 'No wallet provider detected',
       };
@@ -56,7 +56,7 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
 
     if (!config) {
       return {
-        config: NETWORK_CONFIGS['local'],
+        config: null,
         isCorrectNetwork: false,
         error: `Unsupported network (Chain ID: ${chainId})`,
       };
@@ -69,20 +69,16 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
         error: `${config.name} is not yet supported`,
       };
     }
-
-    // Determine the target network from environment variables
-    const targetChainId = parseInt(process.env.NEXT_PUBLIC_BLOCKDAG_CHAIN_ID || '1337');
-    const isCorrect = config.chainId === targetChainId;
-
+    
+    // The network is "correct" if it is one of the supported networks.
     return {
       config,
-      isCorrectNetwork: isCorrect,
-      error: isCorrect ? undefined : `Please switch to ${getNetworkByChainId(targetChainId)?.name || 'the correct network'} in your wallet.`
+      isCorrectNetwork: true,
+      error: undefined
     };
   } catch (error) {
-    const targetChainId = parseInt(process.env.NEXT_PUBLIC_BLOCKDAG_CHAIN_ID || '1337');
     return {
-      config: getNetworkByChainId(targetChainId) || NETWORK_CONFIGS['local'],
+      config: null,
       isCorrectNetwork: false,
       error: error instanceof Error ? error.message : 'Network detection failed',
     };
@@ -116,7 +112,7 @@ export function formatNetworkName(network: NetworkType): string {
  */
 export function getExplorerTxUrl(network: NetworkType, txHash: string): string {
   const config = NETWORK_CONFIGS[network];
-  if (!config.explorerUrl) return '#';
+  if (!config?.explorerUrl) return '#';
   return `${config.explorerUrl}/tx/${txHash}`;
 }
 
@@ -125,6 +121,6 @@ export function getExplorerTxUrl(network: NetworkType, txHash: string): string {
  */
 export function getExplorerAddressUrl(network: NetworkType, address: string): string {
   const config = NETWORK_CONFIGS[network];
-  if (!config.explorerUrl) return '#';
+  if (!config?.explorerUrl) return '#';
   return `${config.explorerUrl}/address/${address}`;
 }
