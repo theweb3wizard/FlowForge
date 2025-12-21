@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { StatCard } from './StatCard';
 import { Package, Users, Activity, Trophy } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface DeploymentStats {
   totalDeployments: number;
@@ -16,7 +16,6 @@ interface DeploymentStats {
 export default function StatsPanel() {
   const [stats, setStats] = useState<DeploymentStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -26,7 +25,7 @@ export default function StatsPanel() {
         // Fetch all data in one go initially
         const { data: allDeployments, error } = await supabase
           .from('deployments')
-          .select('deployer, contractName, timestamp');
+          .select('deployer_address, contract_name, deployed_at');
 
         if (error) throw error;
 
@@ -34,11 +33,11 @@ export default function StatsPanel() {
         const totalDeployments = allDeployments.length;
 
         // 2. Unique Deployers
-        const uniqueDeployers = new Set(allDeployments.map(d => d.deployer)).size;
+        const uniqueDeployers = new Set(allDeployments.map(d => d.deployer_address)).size;
 
         // 3. Most Popular Template
         const templateCounts = allDeployments.reduce((acc, t) => {
-          acc[t.contractName] = (acc[t.contractName] || 0) + 1;
+          acc[t.contract_name] = (acc[t.contract_name] || 0) + 1;
           return acc;
         }, {} as Record<string, number>);
         
@@ -48,7 +47,7 @@ export default function StatsPanel() {
 
         // 4. Recent Activity (last 24 hours)
         const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const recentActivity = allDeployments.filter(d => new Date(d.timestamp) > yesterday).length;
+        const recentActivity = allDeployments.filter(d => new Date(d.deployed_at) > yesterday).length;
 
         setStats({
           totalDeployments,
@@ -59,9 +58,7 @@ export default function StatsPanel() {
 
       } catch (error: any) {
         console.error("Error fetching deployment stats:", error);
-        toast({
-          variant: 'destructive',
-          title: 'Error fetching stats',
+        toast.error('Error fetching stats', {
           description: 'Could not load dashboard statistics.',
         });
       } finally {
@@ -70,7 +67,7 @@ export default function StatsPanel() {
     };
 
     fetchStats();
-  }, [toast]);
+  }, []);
 
   const commonIconProps = "h-4 w-4 text-muted-foreground";
 
