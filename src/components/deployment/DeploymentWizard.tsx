@@ -75,9 +75,15 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
   const publicClient = usePublicClient();
 
   const formSchema = generateSchema(template.parameters);
+  
+  const defaultValues =
+    template.parameters && Array.isArray(template.parameters)
+      ? template.parameters.reduce((acc, param) => ({ ...acc, [param.name]: '' }), {})
+      : {};
+      
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: template.parameters?.reduce((acc, param) => ({ ...acc, [param.name]: '' }), {}),
+    defaultValues,
     mode: 'onChange',
   });
 
@@ -390,3 +396,5 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
     </Dialog>
   );
 }
+
+    
