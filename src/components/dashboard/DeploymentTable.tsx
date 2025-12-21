@@ -40,7 +40,6 @@ export default function DeploymentTable() {
         const { data, error } = await supabase
           .from('deployments')
           .select('*, template:contract_templates(name, icon)')
-          .eq('deployment_status', 'success')
           .order('deployed_at', { ascending: false })
           .limit(100);
 
@@ -67,13 +66,11 @@ export default function DeploymentTable() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'deployments' },
         (payload) => {
-            if (payload.new.deployment_status === 'success') {
-                // Manually join template data as it's not available in the payload
-                const newDeployment = payload.new as DeploymentWithTemplate;
-                // This is a simplification; ideally, we'd fetch the template info
-                // but for now, we'll add it and show 'Unknown'
-                setDeployments(prev => [newDeployment, ...prev]);
-            }
+            // Manually join template data as it's not available in the payload
+            const newDeployment = payload.new as DeploymentWithTemplate;
+            // This is a simplification; ideally, we'd fetch the template info
+            // but for now, we'll add it and show 'Unknown'
+            setDeployments(prev => [newDeployment, ...prev]);
         }
       )
       .subscribe();
