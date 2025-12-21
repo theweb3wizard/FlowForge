@@ -138,17 +138,20 @@ export function useDeployContract() {
       setDeploymentStatus('error');
       setProgress(0);
 
-      // Parse error messages
-      let errorMessage = 'Deployment failed';
+      let errorMessage = 'An unknown error occurred during deployment.';
       
-      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
-        errorMessage = 'Transaction rejected by user';
-      } else if (error.message?.includes('insufficient funds')) {
-        errorMessage = 'Insufficient funds for gas';
-      } else if (error.message?.includes('network')) {
-        errorMessage = 'Network error. Please check your connection';
-      } else if (error.message) {
-        errorMessage = error.message;
+      if (typeof error === 'object' && error !== null) {
+        if ('code' in error && (error.code === 4001 || error.code === 'ACTION_REJECTED')) {
+          errorMessage = 'Transaction rejected by user.';
+        } else if ('reason' in error && typeof error.reason === 'string') {
+          errorMessage = error.reason;
+        } else if ('message' in error && typeof error.message === 'string') {
+          errorMessage = error.message;
+        } else if ('error' in error && typeof error.error === 'object' && error.error !== null && 'message' in error.error) {
+           errorMessage = (error.error as any).message;
+        }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
       }
 
       return {
