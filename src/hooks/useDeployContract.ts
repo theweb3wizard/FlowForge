@@ -55,20 +55,23 @@ export function useDeployContract() {
       setProgress(30);
 
       const signer = await provider.getSigner();
+
+      // MONKEY-PATCH: Replace PUSH0 (0x5f) with PUSH1 00 (0x6000)
+      const patchedBytecode = template.bytecode.replaceAll('5f', '6000');
+
       const factory = new ethers.ContractFactory(
         template.abi,
-        template.bytecode,
+        patchedBytecode,
         signer
       );
+      
 
       // STEP 3: Validate constructor arguments
       setProgress(40);
       
-      // Convert arguments to proper types
       const processedArgs = constructorArgs.map((arg, index) => {
         const paramType = template.parameters[index]?.type;
         
-        // Handle different types
         if (paramType?.startsWith('uint') || paramType?.startsWith('int')) {
           return ethers.BigNumber.from(arg);
         }
@@ -76,7 +79,6 @@ export function useDeployContract() {
           return arg === 'true' || arg === true;
         }
         if (paramType?.includes('[]')) {
-          // Parse array input
           try {
             return JSON.parse(arg);
           } catch {
@@ -95,7 +97,6 @@ export function useDeployContract() {
       setDeploymentStatus('deploying');
       setProgress(60);
 
-      // Wait for deployment transaction to be mined
       await contract.deployTransaction.wait(1);
 
       setProgress(80);
@@ -113,7 +114,7 @@ export function useDeployContract() {
         chain_id: chainId,
         transaction_hash: contract.deployTransaction.hash,
         constructor_args: Object.fromEntries(
-          template.parameters.map((param, i) => [param.name, constructorArgs[i]])
+          (template.parameters || []).map((param, i) => [param.name, constructorArgs[i]])
         ),
         deployment_status: 'success',
       });
@@ -150,7 +151,6 @@ export function useDeployContract() {
         } else if ('error' in error && typeof error.error === 'object' && error.error !== null && 'message' in error.error) {
            errorMessage = (error.error as any).message;
         } else {
-          // Fallback to stringifying the object if no known properties are found
           const errorString = JSON.stringify(error);
           if (errorString !== '{}') {
             errorMessage = errorString;
@@ -169,9 +169,6 @@ export function useDeployContract() {
     }
   };
 
-  /**
-   * Reset deployment state
-   */
   const resetDeployment = () => {
     setIsDeploying(false);
     setDeploymentStatus('idle');
