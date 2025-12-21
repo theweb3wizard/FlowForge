@@ -45,6 +45,7 @@ function walletClientToSigner(walletClient: WalletClient): ethers.Signer {
 
 interface WalletContextType {
   address: `0x${string}` | undefined;
+  isConnected: boolean;
   provider: ethers.providers.Web3Provider | undefined;
   connectors: readonly Connector[];
   connect: (args?: { connector: Connector }) => void;
@@ -55,7 +56,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
   const { connectors, connect, error } = useConnect();
   const { disconnect } = useDisconnect();
   const { toast } = useToast();
@@ -104,7 +105,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <WalletContext.Provider value={{ address, connectors, connect: handleConnect, disconnect: handleDisconnect, error, provider }}>
+    <WalletContext.Provider value={{ address, isConnected, connectors, connect: handleConnect, disconnect: handleDisconnect, error, provider }}>
       {children}
     </WalletContext.Provider>
   );
