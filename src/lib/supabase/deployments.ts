@@ -54,7 +54,7 @@ export async function getDeploymentsByAddress(address: string): Promise<Deployme
       *,
       template:contract_templates(*)
     `)
-    .eq('deployer_address', address.toLowerCase())
+    .ilike('deployer_address', address) // Use ilike for case-insensitive matching
     .order('deployed_at', { ascending: false });
 
   if (error) {
