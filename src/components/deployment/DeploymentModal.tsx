@@ -173,7 +173,7 @@ export function DeploymentModal({ template, onClose }: DeploymentModalProps) {
             <span className="text-4xl">{template.icon}</span>
             <div className='flex flex-col'>
                 <span className="text-2xl font-headline">Deploy {template.name}</span>
-                <span className="text-sm text-muted-foreground font-normal">{template.description}</span>
+                <DialogDescription className="text-left text-sm text-muted-foreground font-normal mt-1">{template.description}</DialogDescription>
             </div>
           </DialogTitle>
         </DialogHeader>
