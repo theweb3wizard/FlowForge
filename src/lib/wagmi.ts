@@ -18,7 +18,7 @@ const blockdagTestnet = {
 } as const satisfies Chain;
 
 const localnet = {
-  id: 1337,
+  id: 31337,
   name: 'Localnet',
   nativeCurrency: { name: 'Local Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
