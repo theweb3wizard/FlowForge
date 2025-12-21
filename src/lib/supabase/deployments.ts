@@ -76,7 +76,7 @@ export async function getDeploymentByContractAddress(contractAddress: string): P
       *,
       template:contract_templates(*)
     `)
-    .eq('contract_address', contractAddress.toLowerCase())
+    .ilike('contract_address', contractAddress) // Use ilike for case-insensitive matching
     .single();
 
   if (error) {
