@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import * as LucideIcons from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +11,7 @@ import type { ContractTemplate } from '@/types/template';
 
 interface TemplateCardProps {
   template: ContractTemplate;
-  onSelect: () => void;
+  onSelect: (template: ContractTemplate) => void;
   className?: string;
 }
 
@@ -34,11 +36,11 @@ export function TemplateCard({ template, onSelect, className }: TemplateCardProp
       <CardContent className="flex-1" />
       <CardFooter>
         <Button 
-          onClick={onSelect} 
+          onClick={() => onSelect(template)} 
           disabled={isDisabled}
           className="w-full bg-accent hover:bg-accent/90 text-accent-foreground hover:shadow-glow-accent transition-shadow duration-300 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
         >
-          {isDisabled ? 'Coming Soon' : 'View Details'}
+          {isDisabled ? 'Coming Soon' : 'Deploy Now'}
           {!isDisabled && <ArrowRight className="ml-2 h-4 w-4" />}
         </Button>
       </CardFooter>
