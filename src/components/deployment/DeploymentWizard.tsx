@@ -265,7 +265,7 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                {template.parameters?.map(param => (
+                {Array.isArray(template.parameters) && template.parameters.map(param => (
                   <FormField
                     key={param.name}
                     control={form.control}
@@ -396,5 +396,3 @@ export function DeploymentWizard({ template, open, onOpenChange }: DeploymentWiz
     </Dialog>
   );
 }
-
-    
