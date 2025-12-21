@@ -11,7 +11,7 @@ import { Confetti } from '../common/Confetti';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { type ContractTemplate } from '@/lib/contracts';
+import { type ContractTemplate } from '@/lib/deployments';
 import { useWallet } from '@/contexts/WalletContext';
 import { useDeployments } from '@/contexts/DeploymentContext';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -38,7 +38,10 @@ interface DeploymentWizardProps {
 }
 
 const generateSchema = (parameters: ContractTemplate['parameters']) => {
-  if (!parameters) return z.object({});
+  // Add a check to ensure parameters is an array before calling forEach
+  if (!parameters || !Array.isArray(parameters)) {
+    return z.object({});
+  }
   const shape: { [key: string]: z.ZodType<any, any> } = {};
   parameters.forEach(param => {
     let schema: z.ZodString;
