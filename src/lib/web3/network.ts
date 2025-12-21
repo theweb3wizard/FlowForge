@@ -5,7 +5,7 @@ import { NetworkConfig, NetworkDetectionResult, NetworkType } from '@/types/netw
  */
 export const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
   'blockdag-testnet': {
-    chainId: parseInt(process.env.NEXT_PUBLIC_BLOCKDAG_CHAIN_ID || '0'),
+    chainId: 1043,
     name: 'BlockDAG Testnet',
     type: 'blockdag-testnet',
     rpcUrl: process.env.NEXT_PUBLIC_BLOCKDAG_RPC_URL || '',
@@ -23,7 +23,7 @@ export const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
     isSupported: false, // Enable when mainnet launches
   },
   'local': {
-    chainId: 31337,
+    chainId: 1337,
     name: 'Local Network',
     type: 'local',
     rpcUrl: 'http://127.0.0.1:8545',
@@ -71,7 +71,7 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
     }
 
     // Determine the target network from environment variables
-    const targetChainId = parseInt(process.env.NEXT_PUBLIC_BLOCKDAG_CHAIN_ID || '31337');
+    const targetChainId = parseInt(process.env.NEXT_PUBLIC_BLOCKDAG_CHAIN_ID || '1337');
     const isCorrect = config.chainId === targetChainId;
 
     return {
@@ -80,7 +80,7 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
       error: isCorrect ? undefined : `Please switch to ${getNetworkByChainId(targetChainId)?.name || 'the correct network'} in your wallet.`
     };
   } catch (error) {
-    const targetChainId = parseInt(process.env.NEXT_PUBLIC_BLOCKDAG_CHAIN_ID || '31337');
+    const targetChainId = parseInt(process.env.NEXT_PUBLIC_BLOCKDAG_CHAIN_ID || '1337');
     return {
       config: getNetworkByChainId(targetChainId) || NETWORK_CONFIGS['local'],
       isCorrectNetwork: false,

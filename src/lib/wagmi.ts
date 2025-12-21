@@ -4,7 +4,7 @@ import { mainnet, sepolia } from 'wagmi/chains';
 import { injected } from 'wagmi/connectors';
 
 const blockdagTestnet = {
-  id: Number(process.env.NEXT_PUBLIC_BLOCKDAG_CHAIN_ID || 11155111), // Default to Sepolia for safety
+  id: 1043,
   name: 'BlockDAG Testnet',
   nativeCurrency: { name: 'tBDAG', symbol: 'tBDAG', decimals: 18 },
   rpcUrls: {
@@ -18,7 +18,7 @@ const blockdagTestnet = {
 } as const satisfies Chain;
 
 const localnet = {
-  id: 31337,
+  id: 1337,
   name: 'Localnet',
   nativeCurrency: { name: 'Local Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
