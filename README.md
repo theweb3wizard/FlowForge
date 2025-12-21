@@ -1,139 +1,107 @@
-# FlowForge 🌊 — No-Code Smart Contract Deployments for BlockDAG
+# FlowForge - Smart Contract Deployment Platform
 
-**Visit the live FlowForge dApp:** **[https://flowforgehq.netlify.app/](https://flowforgehq.netlify.app/)**
+FlowForge is a user-friendly platform for deploying and interacting with smart contracts on BlockDAG networks.
 
-**FlowForge is a no-code toolkit that empowers developers, DAOs, and builders to deploy and interact with secure, pre-audited smart contracts on the BlockDAG testnet without writing a single line of Solidity.**
+## Features
 
-> Our mission is to accelerate the growth of the BlockDAG ecosystem by transforming complex contract management into a simple, fast, and secure visual workflow.
+- 📋 **Template Library**: Browse pre-built contract templates
+- 🚀 **One-Click Deployment**: Deploy contracts with a simple form
+- 🔍 **Contract Interaction**: Read and write contract functions
+- 📊 **Deployment Dashboard**: Track all your deployments
+- 🌐 **Multi-Network**: Support for testnet, mainnet, and local networks
 
----
+## Getting Started
 
-## ✅ Wave 3 Complete: On-Chain Contract Interaction
+### Prerequisites
 
-FlowForge has evolved from a simple deployment tool into an interactive dApp management platform. We have successfully achieved our Wave 3 milestone: **allowing users to directly interact with their deployed smart contracts from the UI.**
+- Node.js 18+ 
+- npm or yarn
+- A Web3 wallet (MetaMask, etc.)
+- Supabase account
 
-| Feature                        | Status           | Description                                                                                               |
-| ------------------------------ | ---------------- | --------------------------------------------------------------------------------------------------------- |
-| **Live Contract Deployment**   | ✅ Completed     | Deploy a real ERC-20 token contract directly to the BlockDAG testnet.                                     |
-| **Persistent History**         | ✅ Completed     | Deployment records are saved to Supabase and displayed on a public dashboard.                             |
-| **Dynamic Interaction UI**     | ✅ **Completed** | **A new page dynamically generates Read/Write forms for every function in a contract's ABI.**             |
-| **Direct On-Chain Interaction**| ✅ **Completed** | **Users can now call contract functions, sign transactions, and view state directly from the dApp.**        |
-| **Developer Experience**       | ✅ **Completed** | **Added a "Copy ABI" button for seamless integration with other developer tools.**                          |
-| **UI/UX Polish**               | ✅ **Completed** | **Implemented a full Light & Dark mode theme for a professional and accessible user experience.**           |
+### Installation
 
----
-
-## 🏗️ Architecture Overview
-
-FlowForge is built on a modern web stack designed for a seamless, resilient, and scalable user experience. Wave 3 added a powerful new interaction layer.
-
-```
-[User's Browser]
-      |
-      +-----> [Next.js Frontend (React, wagmi)]
-      |         - (1) Deploys ERC-20 contract.
-      |         - (2) Navigates to Dashboard -> Clicks on deployed contract.
-      |
-      +-----> [Contract Interaction Page]
-      |         - (3) Dynamically generates forms for `balanceOf`, `transfer`, etc., from ABI.
-      |         - (4) User calls `balanceOf(0x...)` -> Reads data from BlockDAG.
-      |
-      +-----> [MetaMask]
-      |         - (5) User calls `transfer(...)` -> Signs transaction.
-      |
-      +-----> [BlockDAG Testnet]
-                - (6) Confirms transaction, state is updated.
-      |
-[FlowForge Backend]
-      |
-      +-----> [Supabase Client]
-                - (7) Stores initial deployment record.
-```
-
-### Tech Stack
-
-| Layer                | Technology                                      | Purpose                               |
-| -------------------- | ----------------------------------------------- | ------------------------------------- |
-| **Frontend**         | Next.js (App Router) + TypeScript               | Application Framework & UI            |
-| **Styling**          | TailwindCSS + ShadCN UI + **next-themes**       | Modern, **Theme-Aware** Design System |
-| **Wallet**           | `wagmi` + `viem`                                  | EVM Wallet Connection & Interaction   |
-| **Data Layer**       | Supabase                                        | Deployment Registry & History         |
-| **Target Blockchain**| BlockDAG Testnet                                  | Core Deployment Target                |
-
----
-
-## 🚀 Getting Started Locally
-
-You can run a local instance of the FlowForge dApp in just a few steps.
-
-### 1. Prerequisites
-
-- [Node.js](https://nodejs.org/en/) (v18.0 or later)
-- [npm](https://www.npmjs.com/) (or yarn/pnpm)
-- A MetaMask wallet (or any EIP-1193 compatible browser wallet) with BlockDAG testnet funds.
-
-### 2. Setup
-
-Clone the repository and install the dependencies:
-
+1. Clone the repository:
 ```bash
 git clone https://github.com/theweb3wizard/FlowForge.git
 cd FlowForge
+```
+
+2. Install dependencies:
+```bash
 npm install
 ```
 
-### 3. Environment Configuration
-
-Create a `.env.local` file by copying the example.
-
+3. Set up environment variables:
 ```bash
-cp .env.local.example .env.local
+cp .env.example .env.local
 ```
 
-Fill in the required environment variables in your new `.env.local` file:
-
-```bash
-# Get these from your Supabase Project -> Settings -> API
-NEXT_PUBLIC_SUPABASE_URL="YOUR_SUPABASE_URL"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY"
-
-# These are required for the BlockDAG network configuration
-# The RPC URL is used by the Next.js proxy
-NEXT_PUBLIC_BLOCKDAG_RPC_URL="https://rpc.awakening.bdagscan.com/"
-NEXT_PUBLIC_BLOCKDAG_CHAIN_ID="11155111" # Example ID, use the correct one
-NEXT_PUBLIC_BLOCKDAG_EXPLORER_URL="https://testnet.bdagscan.com"
+Edit `.env.local` with your values:
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_BLOCKDAG_RPC_URL=https://rpc.awakening.bdagscan.com/
+NEXT_PUBLIC_BLOCKDAG_CHAIN_ID=your_chain_id
+NEXT_PUBLIC_BLOCKDAG_EXPLORER_URL=https://testnet.bdagscan.com
 ```
 
-### 4. Run the Development Server
-
+4. Run the development server:
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:9002](http://localhost:9002) in your browser to see the application.
+5. Open [http://localhost:9002](http://localhost:9002)
 
----
+## Database Setup
 
-## 🗺️ Project Roadmap: Wave 4 and Beyond
+Run the SQL migration in your Supabase SQL Editor.
 
-Our focus for Wave 4 is to solve the single biggest bottleneck in the platform: **the manual process of adding new contract templates.** The goal is to transform FlowForge into a truly dynamic, scalable, no-code platform.
+## Usage
 
-| Phase  | Core Deliverable                                     | Status       |
-| ------ | ---------------------------------------------------- | ------------ |
-| **Wave 1** | UI Scaffold & Mocked Backend                       | ✅ Completed |
-| **Wave 2** | Real ERC-20 Deployment to BlockDAG Testnet         | ✅ Completed |
-| **Wave 3** | **Dynamic On-Chain Contract Interaction UI**       | ✅ **Completed** |
-| **Wave 4** | **Supabase-Driven Templates & AI Onboarding**      | 🚀 Planned   |
+### Deploying a Contract
 
-Our priorities for Wave 4 are clear and transformative:
+1. Connect your wallet
+2. Browse templates on the home page
+3. Click "Deploy" on a template
+4. Fill in the constructor parameters
+5. Click "Deploy Contract" and sign the transaction
+6. View your deployment in the dashboard
 
--   **Database-Driven Templates:** We will migrate all contract templates from hardcoded files into a **Supabase database table.** The application will fetch available templates dynamically, making the platform instantly extensible without new code deployments.
+### Interacting with Contracts
 
--   **AI-Powered Contract Onboarding:** We will build an internal admin tool that uses a Genkit AI flow to automate the addition of new contracts. An admin will simply paste raw Solidity code, and the AI will:
-    1.  Analyze the code to extract the description and constructor parameters.
-    2.  Compile the code to get the ABI and Bytecode.
-    3.  Save the complete, structured template directly into the Supabase database.
+1. Go to Dashboard → My Contracts
+2. Click "Interact with Contract"
+3. Use the Read Functions tab to query contract state
+4. Use the Write Functions tab to execute transactions (deployer only)
 
--   **Fully Dynamic Deployment & Interaction:** By using the template data from Supabase, the deployment wizard and interaction pages will become 100% dynamic, able to handle any contract type without requiring manual code changes.
+## Tech Stack
 
-This new architecture will finally deliver on the promise of FlowForge: a truly no-code, scalable platform for the entire BlockDAG ecosystem.
+- **Frontend**: Next.js 15, React 18, TailwindCSS
+- **Web3**: ethers.js, wagmi
+- **Database**: Supabase (PostgreSQL)
+- **Blockchain**: BlockDAG Network
+
+## Project Structure
+
+```
+src/
+├── app/              # Next.js pages
+├── components/       # React components
+├── hooks/            # Custom hooks
+├── lib/              # Utilities and helpers
+├── types/            # TypeScript types
+└── contexts/         # React contexts
+```
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request.
+
+## License
+
+MIT License
+
+## Support
+
+For issues and questions, please open a GitHub issue.

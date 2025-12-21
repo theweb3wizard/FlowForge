@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ethers } from 'ethers';
 import { useWallet } from '@/contexts/WalletContext';
+import { getWeb3ErrorMessage } from '@/lib/errors';
 
 interface CallResult {
   success: boolean;
@@ -41,14 +42,14 @@ export function useContractInteraction(contractAddress: string, abi: any[]) {
       let formattedResult = result;
       
       // Handle BigNumber
-      if (ethers.BigNumber.isBigNumber(result)) {
+      if (result instanceof ethers.BigNumber) {
         formattedResult = result.toString();
       }
       
       // Handle arrays
       if (Array.isArray(result)) {
         formattedResult = result.map((item) =>
-          ethers.BigNumber.isBigNumber(item) ? item.toString() : item
+          item instanceof ethers.BigNumber ? item.toString() : item
         );
       }
 
@@ -60,7 +61,7 @@ export function useContractInteraction(contractAddress: string, abi: any[]) {
 
       return {
         success: false,
-        error: error.message || 'Failed to call function',
+        error: getWeb3ErrorMessage(error),
       };
     }
   };
@@ -108,20 +109,7 @@ export function useContractInteraction(contractAddress: string, abi: any[]) {
       setIsLoading(false);
       setLoadingFunction(null);
 
-      // Parse error messages
-      let errorMessage = 'Transaction failed';
-      
-      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
-        errorMessage = 'Transaction rejected by user';
-      } else if (error.message?.includes('insufficient funds')) {
-        errorMessage = 'Insufficient funds for transaction';
-      } else if (error.reason) {
-        errorMessage = error.reason;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      return { success: false, error: errorMessage };
+      return { success: false, error: getWeb3ErrorMessage(error) };
     }
   };
 

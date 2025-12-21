@@ -5,10 +5,10 @@ import { useWallet } from '@/contexts/WalletContext';
 import { getDeploymentsByAddress } from '@/lib/supabase/deployments';
 import { DeploymentWithTemplate } from '@/types/deployment';
 import { DeploymentCard } from './DeploymentCard';
-import { Skeleton } from '../ui/skeleton';
 import { Button } from '../ui/button';
 import { Wallet } from 'lucide-react';
 import Link from 'next/link';
+import { DeploymentCardSkeleton } from '@/components/common/LoadingSkeleton';
 
 export function MyContracts() {
   const { address, isConnected } = useWallet();
@@ -60,9 +60,9 @@ export function MyContracts() {
   // Loading state
   if (loading) {
     return (
-      <div className="space-y-4">
-        {[1, 2].map((i) => (
-          <Skeleton key={i} className="h-48 w-full" />
+      <div className="space-y-6">
+        {[1, 2, 3].map((i) => (
+            <DeploymentCardSkeleton key={i} />
         ))}
       </div>
     );

@@ -5,10 +5,9 @@ import { ContractTemplate } from '@/types/template';
 import { getActiveTemplates } from '@/lib/supabase/templates';
 import { TemplateCard } from '@/components/templates/TemplateCard';
 import { DeploymentModal } from '@/components/deployment/DeploymentModal';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Database } from 'lucide-react';
-
+import { TemplateCardSkeleton } from '@/components/common/LoadingSkeleton';
 
 export default function Home() {
   const [templates, setTemplates] = useState<ContractTemplate[]>([]);
@@ -36,6 +35,26 @@ export default function Home() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <header className="text-center mb-12">
+          <h1 className="font-headline text-4xl md:text-6xl font-bold tracking-tighter mb-4">
+            Forge Your Path on the BlockDAG
+          </h1>
+          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
+            Effortlessly deploy secure, pre-audited smart contracts to the testnet. No code, no hassle—just pure innovation.
+          </p>
+        </header>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {[...Array(6)].map((_, i) => (
+            <TemplateCardSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
     <div className="container mx-auto px-4 py-12">
@@ -48,13 +67,7 @@ export default function Home() {
         </p>
       </header>
       
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-64 w-full" />
-            ))}
-        </div>
-      ) : templates.length > 0 ? (
+      {templates.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {templates.map((template) => (
             <TemplateCard

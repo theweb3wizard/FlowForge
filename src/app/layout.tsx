@@ -2,11 +2,12 @@ import type { Metadata } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { cn } from '@/lib/utils';
-import { Toaster } from '@/components/ui/toaster';
 import { Header } from '@/components/common/Header';
 import { Footer } from '@/components/common/Footer';
 import { Web3Provider } from '@/components/common/Web3Provider';
 import { ThemeProvider } from '@/components/common/ThemeProvider';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { Toaster } from '@/components/common/Toaster';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -42,23 +43,25 @@ export default function RootLayout({
           spaceGrotesk.variable
         )}
       >
-        <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-        >
-            <Web3Provider>
-                <div vaul-drawer-wrapper="">
-                  <div className="relative flex min-h-screen flex-col bg-background">
-                    <Header />
-                    <main className="flex-1">{children}</main>
-                    <Footer />
+        <ErrorBoundary>
+          <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+          >
+              <Web3Provider>
+                  <div vaul-drawer-wrapper="">
+                    <div className="relative flex min-h-screen flex-col bg-background">
+                      <Header />
+                      <main className="flex-1">{children}</main>
+                      <Footer />
+                    </div>
                   </div>
-                </div>
-                <Toaster />
-            </Web3Provider>
-        </ThemeProvider>
+                  <Toaster />
+              </Web3Provider>
+          </ThemeProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

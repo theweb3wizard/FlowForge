@@ -9,6 +9,8 @@ import { formatNetworkName, getExplorerAddressUrl, getExplorerTxUrl } from '@/li
 import { ReadFunctions } from '@/components/interaction/ReadFunctions';
 import { WriteFunctions } from '@/components/interaction/WriteFunctions';
 import { Button } from '@/components/ui/button';
+import { ContractDetailSkeleton } from '@/components/common/LoadingSkeleton';
+import { CopyButton } from '@/components/common/CopyButton';
 
 export default function ContractInteractionPage() {
   const params = useParams();
@@ -38,10 +40,7 @@ export default function ContractInteractionPage() {
   if (loading) {
     return (
       <div className="container mx-auto p-8">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/2"></div>
-          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-        </div>
+        <ContractDetailSkeleton />
       </div>
     );
   }
@@ -91,26 +90,32 @@ export default function ContractInteractionPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-muted-foreground mb-1">Contract Address</p>
-            <a
-              href={getExplorerAddressUrl(deployment.network, deployment.contract_address)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-mono text-primary hover:underline break-all"
-            >
-              {deployment.contract_address}
-            </a>
+            <div className="flex items-center">
+              <a
+                href={getExplorerAddressUrl(deployment.network, deployment.contract_address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-primary hover:underline break-all"
+              >
+                {deployment.contract_address}
+              </a>
+              <CopyButton text={deployment.contract_address} />
+            </div>
           </div>
 
           <div>
             <p className="text-muted-foreground mb-1">Deployed By</p>
-            <a
-              href={getExplorerAddressUrl(deployment.network, deployment.deployer_address)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-mono text-foreground hover:text-primary break-all"
-            >
-              {deployment.deployer_address}
-            </a>
+             <div className="flex items-center">
+                <a
+                href={getExplorerAddressUrl(deployment.network, deployment.deployer_address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-foreground hover:text-primary break-all"
+                >
+                {deployment.deployer_address}
+                </a>
+                <CopyButton text={deployment.deployer_address} />
+            </div>
           </div>
 
           <div>
@@ -123,15 +128,18 @@ export default function ContractInteractionPage() {
           {deployment.transaction_hash && (
             <div>
               <p className="text-muted-foreground mb-1">Transaction Hash</p>
-              <a
-                href={getExplorerTxUrl(deployment.network, deployment.transaction_hash)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-primary hover:underline break-all"
-              >
-                {deployment.transaction_hash.slice(0, 10)}...
-                {deployment.transaction_hash.slice(-8)}
-              </a>
+              <div className="flex items-center">
+                <a
+                    href={getExplorerTxUrl(deployment.network, deployment.transaction_hash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-primary hover:underline break-all"
+                >
+                    {deployment.transaction_hash.slice(0, 10)}...
+                    {deployment.transaction_hash.slice(-8)}
+                </a>
+                <CopyButton text={deployment.transaction_hash} />
+              </div>
             </div>
           )}
         </div>

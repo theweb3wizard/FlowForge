@@ -7,6 +7,7 @@ import { createDeployment } from '@/lib/supabase/deployments';
 import { detectNetwork } from '@/lib/web3/network';
 import { ContractTemplate } from '@/types/template';
 import { NetworkType } from '@/types/deployment';
+import { getWeb3ErrorMessage } from '@/lib/errors';
 
 interface DeploymentResult {
   success: boolean;
@@ -146,35 +147,11 @@ export function useDeployContract() {
       setDeploymentStatus('error');
       setProgress(0);
 
-      let errorMessage = 'An unknown error occurred during deployment.';
-      
-      if (typeof error === 'object' && error !== null) {
-        // Handle ethers-specific error structures
-        if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
-            errorMessage = 'Transaction rejected by user.';
-        } else if (error.reason) {
-            errorMessage = error.reason;
-        } else if (error.data?.message) {
-            errorMessage = error.data.message;
-        } else if (error.message) {
-            errorMessage = error.message;
-        } else {
-           // Fallback for unexpected error shapes
-           try {
-             errorMessage = JSON.stringify(error);
-           } catch {
-             errorMessage = 'An un-serializable error occurred.'
-           }
-        }
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-
-
       return {
         success: false,
-        error: errorMessage,
+        error: getWeb3ErrorMessage(error),
       };
+
     } finally {
       setIsDeploying(false);
     }

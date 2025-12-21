@@ -5,6 +5,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { separateFunctions } from '@/lib/abi/parser';
 import { useContractInteraction } from '@/hooks/useContractInteraction';
 import { FunctionExecutor } from './FunctionExecutor';
+import { toast } from 'sonner';
 
 interface WriteFunctionsProps {
   contractAddress: string;
@@ -42,8 +43,14 @@ export function WriteFunctions({ contractAddress, abi, deployerAddress }: WriteF
 
     if (result.success) {
       setResults((prev) => ({ ...prev, [functionName]: result.transactionHash }));
+      toast.success('Transaction successful!', {
+        description: 'Your transaction has been sent to the network.',
+      });
     } else {
       setErrors((prev) => ({ ...prev, [functionName]: result.error }));
+      toast.error('Transaction failed', {
+        description: result.error,
+      });
     }
   };
 

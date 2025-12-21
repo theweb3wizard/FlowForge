@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { getAllDeployments, subscribeToDeployments } from '@/lib/supabase/deployments';
 import { DeploymentWithTemplate } from '@/types/deployment';
 import { DeploymentCard } from './DeploymentCard';
-import { Skeleton } from '../ui/skeleton';
 import { Button } from '../ui/button';
 import Link from 'next/link';
+import { DeploymentCardSkeleton } from '@/components/common/LoadingSkeleton';
 
 export function AllDeployments() {
   const [deployments, setDeployments] = useState<DeploymentWithTemplate[]>([]);
@@ -47,8 +47,8 @@ export function AllDeployments() {
   if (loading) {
     return (
       <div className="space-y-6">
-        {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-48 w-full" />
+        {[1, 2, 3, 4, 5].map((i) => (
+            <DeploymentCardSkeleton key={i} />
         ))}
       </div>
     );

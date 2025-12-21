@@ -21,6 +21,7 @@ import { getExplorerTxUrl } from '@/lib/web3/network';
 import { Confetti } from '../common/Confetti';
 import { AlertCircle, CheckCircle, Rocket } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface DeploymentModalProps {
   template: ContractTemplate | null;
@@ -58,8 +59,14 @@ export function DeploymentModal({ template, onClose }: DeploymentModalProps) {
         address: deployResult.contractAddress,
         txHash: deployResult.transactionHash,
       });
+      toast.success('Contract deployed successfully!', {
+        description: `Address: ${deployResult.contractAddress?.slice(0, 10)}...`,
+      });
     } else {
       setResult({ error: deployResult.error });
+      toast.error('Deployment failed', {
+        description: deployResult.error,
+      });
     }
   };
 
