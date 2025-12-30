@@ -8,6 +8,7 @@ import { Web3Provider } from '@/components/common/Web3Provider';
 import { ThemeProvider } from '@/components/common/ThemeProvider';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { Toaster } from '@/components/common/Toaster';
+import { BatchProvider } from '@/contexts/BatchContext';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -50,16 +51,18 @@ export default function RootLayout({
               enableSystem
               disableTransitionOnChange
           >
+              <BatchProvider>
               <Web3Provider>
-                  <div vaul-drawer-wrapper="">
-                    <div className="relative flex min-h-screen flex-col bg-background">
-                      <Header />
-                      <main className="flex-1">{children}</main>
-                      <Footer />
-                    </div>
+                <div vaul-drawer-wrapper="">
+                  <div className="relative flex min-h-screen flex-col bg-background">
+                    <Header />
+                    <main className="flex-1">{children}</main>
+                    <Footer />
                   </div>
-                  <Toaster />
+                </div>
+                <Toaster />
               </Web3Provider>
+            </BatchProvider>
           </ThemeProvider>
         </ErrorBoundary>
       </body>

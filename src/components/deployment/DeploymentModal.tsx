@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ContractTemplate } from '@/types/template';
-import { useDeployContract } from '@/hooks/useDeployContract';
+import { useDeployContract, DeploymentStatus } from '@/hooks/useDeployContract';
 import { ConstructorForm } from './ConstructorForm';
 import { NetworkIndicator } from './NetworkIndicator';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { getExplorerTxUrl } from '@/lib/web3/network';
 import { Confetti } from '../common/Confetti';
-import { AlertCircle, CheckCircle, Rocket } from 'lucide-react';
+import { AlertCircle, CheckCircle, Rocket, ExternalLink, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
@@ -28,9 +28,40 @@ interface DeploymentModalProps {
   onClose: () => void;
 }
 
+const statusMessages: Record<DeploymentStatus, string> = {
+  idle: 'Ready to deploy',
+  preparing: 'Preparing deployment...',
+  signing: '🔏 Please sign the transaction in your wallet',
+  submitted: '📡 Transaction submitted, waiting for network confirmation...',
+  confirming: '⛏️  Transaction confirmed! Verifying deployment...',
+  confirmed: '✅ Deployment confirmed on blockchain',
+  saving: '💾 Saving deployment record...',
+  success: '🎉 Deployment successful!',
+  error: '❌ Deployment failed'
+};
+
+const statusIcons: Record<DeploymentStatus, React.ReactNode> = {
+  idle: null,
+  preparing: <Loader2 className="h-4 w-4 animate-spin" />,
+  signing: <Loader2 className="h-4 w-4 animate-spin" />,
+  submitted: <Loader2 className="h-4 w-4 animate-spin" />,
+  confirming: <Loader2 className="h-4 w-4 animate-spin" />,
+  confirmed: <CheckCircle className="h-4 w-4 text-green-500" />,
+  saving: <Loader2 className="h-4 w-4 animate-spin" />,
+  success: <CheckCircle className="h-4 w-4 text-green-500" />,
+  error: <AlertCircle className="h-4 w-4 text-red-500" />
+};
+
 export function DeploymentModal({ template, onClose }: DeploymentModalProps) {
   const router = useRouter();
-  const { deployContract, isDeploying, deploymentStatus, progress, resetDeployment } = useDeployContract();
+  const { 
+    deployContract, 
+    isDeploying, 
+    deploymentStatus, 
+    progress, 
+    transactionHash,
+    resetDeployment 
+  } = useDeployContract();
   
   const [contractName, setContractName] = useState('');
   const [constructorArgs, setConstructorArgs] = useState<any[]>([]);
@@ -39,13 +70,12 @@ export function DeploymentModal({ template, onClose }: DeploymentModalProps) {
 
   useEffect(() => {
     if (template) {
-        setContractName(template.name);
-        // Auto-validate form if there are no parameters
-        if (!template.parameters || template.parameters.length === 0) {
-            setIsFormValid(true);
-        } else {
-            setIsFormValid(false);
-        }
+      setContractName(template.name);
+      if (!template.parameters || template.parameters.length === 0) {
+        setIsFormValid(true);
+      } else {
+        setIsFormValid(false);
+      }
     }
   }, [template]);
 
@@ -94,8 +124,8 @@ export function DeploymentModal({ template, onClose }: DeploymentModalProps) {
         <DialogContent className="max-w-md">
           <Confetti />
           <DialogHeader>
-             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+              <CheckCircle className="h-6 w-6 text-green-600" />
             </div>
             <DialogTitle className="text-center">Deployment Successful!</DialogTitle>
             <DialogDescription className="text-center">
@@ -106,19 +136,20 @@ export function DeploymentModal({ template, onClose }: DeploymentModalProps) {
           <div className="space-y-4 py-4">
             <div className="bg-muted/50 p-4 rounded-lg space-y-3 border">
               <div>
-                <Label htmlFor='contract-address-success' className="text-xs">Contract Address</Label>
-                <p id="contract-address-success" className="font-mono text-sm break-all">{result.address}</p>
+                <Label htmlFor='contract-address-success' className="text-xs font-medium">Contract Address</Label>
+                <p id="contract-address-success" className="font-mono text-sm break-all mt-1">{result.address}</p>
               </div>
               <div>
-                <Label htmlFor='tx-hash-success' className="text-xs">Transaction Hash</Label>
-                 <Link
+                <Label htmlFor='tx-hash-success' className="text-xs font-medium">Transaction Hash</Label>
+                <Link
                   id='tx-hash-success'
                   href={getExplorerTxUrl('blockdag-testnet', result.txHash || '')}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-mono text-sm text-primary hover:underline break-all block"
+                  className="font-mono text-sm text-primary hover:underline break-all flex items-center gap-1 mt-1"
                 >
                   {result.txHash}
+                  <ExternalLink className="h-3 w-3" />
                 </Link>
               </div>
             </div>
@@ -144,7 +175,7 @@ export function DeploymentModal({ template, onClose }: DeploymentModalProps) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                <AlertCircle className="h-6 w-6 text-red-600" />
+              <AlertCircle className="h-6 w-6 text-red-600" />
             </div>
             <DialogTitle className="text-center">Deployment Failed</DialogTitle>
             <DialogDescription className="text-center">
@@ -154,11 +185,25 @@ export function DeploymentModal({ template, onClose }: DeploymentModalProps) {
 
           <div className="space-y-4 py-4">
             <div className="bg-destructive/10 p-4 rounded-lg border border-destructive/20">
-              <p className="text-sm text-destructive-foreground">{result.error}</p>
+              <p className="text-sm text-destructive-foreground whitespace-pre-wrap">{result.error}</p>
             </div>
+            
+            {transactionHash && (
+              <div className="text-center">
+                <Link
+                  href={getExplorerTxUrl('blockdag-testnet', transactionHash)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  View transaction on block explorer
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              </div>
+            )}
 
             <div className="flex gap-2">
-               <Button onClick={() => { resetDeployment(); setResult(null); }} className="flex-1">
+              <Button onClick={() => { resetDeployment(); setResult(null); }} className="flex-1">
                 Try Again
               </Button>
               <Button onClick={handleClose} variant="outline">
@@ -179,8 +224,10 @@ export function DeploymentModal({ template, onClose }: DeploymentModalProps) {
           <DialogTitle className="flex items-center gap-3">
             <span className="text-4xl">{template.icon}</span>
             <div className='flex flex-col'>
-                <span className="text-2xl font-headline">Deploy {template.name}</span>
-                <DialogDescription className="text-left text-sm text-muted-foreground font-normal mt-1">{template.description}</DialogDescription>
+              <span className="text-2xl font-headline">Deploy {template.name}</span>
+              <DialogDescription className="text-left text-sm text-muted-foreground font-normal mt-1">
+                {template.description}
+              </DialogDescription>
             </div>
           </DialogTitle>
         </DialogHeader>
@@ -197,14 +244,16 @@ export function DeploymentModal({ template, onClose }: DeploymentModalProps) {
             <Label htmlFor="contractName">
               Contract Name <span className="text-destructive">*</span>
             </Label>
-             <Input
-                id="contractName"
-                placeholder="e.g., My Awesome Token"
-                value={contractName}
-                onChange={(e) => setContractName(e.target.value)}
-                disabled={isDeploying}
+            <Input
+              id="contractName"
+              placeholder="e.g., My Awesome Token"
+              value={contractName}
+              onChange={(e) => setContractName(e.target.value)}
+              disabled={isDeploying}
             />
-             <p className="text-xs text-muted-foreground">This is a friendly name for your reference on the dashboard.</p>
+            <p className="text-xs text-muted-foreground">
+              This is a friendly name for your reference on the dashboard.
+            </p>
           </div>
 
           {/* Constructor Parameters */}
@@ -219,12 +268,35 @@ export function DeploymentModal({ template, onClose }: DeploymentModalProps) {
 
           {/* Deployment Progress */}
           {isDeploying && (
-            <div className="space-y-2 pt-4">
-              <div className="flex justify-between text-sm font-medium">
-                <span className="capitalize">{deploymentStatus}...</span>
-                <span>{progress}%</span>
+            <div className="space-y-3 pt-4 border-t">
+              <div className="flex items-center justify-between text-sm font-medium">
+                <span className="flex items-center gap-2">
+                  {statusIcons[deploymentStatus]}
+                  {statusMessages[deploymentStatus]}
+                </span>
+                <span className="text-muted-foreground">{progress}%</span>
               </div>
-              <Progress value={progress} />
+              <Progress value={progress} className="h-2" />
+              
+              {transactionHash && (
+                <div className="text-center pt-2">
+                  <Link
+                    href={getExplorerTxUrl('blockdag-testnet', transactionHash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    View transaction on block explorer
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+              )}
+
+              {deploymentStatus === 'submitted' && (
+                <p className="text-xs text-muted-foreground text-center">
+                  ⏳ Waiting for network to include transaction in a block...
+                </p>
+              )}
             </div>
           )}
 

@@ -8,6 +8,7 @@ import { DeploymentModal } from '@/components/deployment/DeploymentModal';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Database } from 'lucide-react';
 import { TemplateCardSkeleton } from '@/components/common/LoadingSkeleton';
+import { BatchCart } from '@/components/batch/BatchCart';
 
 export default function Home() {
   const [templates, setTemplates] = useState<ContractTemplate[]>([]);
@@ -94,6 +95,7 @@ export default function Home() {
             onClose={() => setSelectedTemplate(null)}
         />
     )}
+     <BatchCart />
     </>
   );
 }

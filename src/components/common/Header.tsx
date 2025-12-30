@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -11,8 +10,10 @@ import { Wallet, LogOut, Home, LayoutDashboard, Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from './ThemeToggle';
+import { Layers } from 'lucide-react';
 
 const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
+  const { address } = useWallet();
   const commonClasses = "justify-start text-base";
   
   if (isMobile) {
@@ -26,6 +27,12 @@ const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
           <LayoutDashboard className="mr-3 h-5 w-5" />
           Dashboard
         </Link>
+        {address && (
+          <Link href="/dashboard/recipes" className={cn(buttonVariants({ variant: 'ghost' }), commonClasses)}>
+            <Layers className="mr-3 h-5 w-5" />
+            Recipes
+          </Link>
+        )}
       </nav>
     );
   }
@@ -38,6 +45,12 @@ const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
       <Link href="/dashboard" className="text-muted-foreground transition-colors hover:text-foreground">
         Dashboard
       </Link>
+      {address && (
+        <Link href="/dashboard/recipes" className="text-muted-foreground transition-colors hover:text-foreground flex items-center gap-2">
+          <Layers className="h-4 w-4" />
+          Recipes
+        </Link>
+      )}
     </nav>
   );
 };
