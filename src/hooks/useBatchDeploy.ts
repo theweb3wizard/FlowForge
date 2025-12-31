@@ -24,6 +24,34 @@ interface SingleDeploymentResult {
   error?: string;
 }
 
+/**
+ * Safely converts a value to BigNumber, handling whitespace and validation
+ */
+function toBigNumberSafe(value: unknown): ethers.BigNumber {
+  if (ethers.BigNumber.isBigNumber(value)) {
+    return value;
+  }
+
+  let stringValue: string;
+
+  if (typeof value === 'string') {
+    stringValue = value.trim();
+  } else if (typeof value === 'number') {
+    stringValue = value.toString();
+  } else {
+    stringValue = String(value).trim();
+  }
+
+  // Validate the string is a valid integer (positive, negative, or zero)
+  if (!/^-?\d+$/.test(stringValue)) {
+    throw new Error(
+      `Invalid integer value for BigNumber: "${stringValue}". Expected a valid integer string.`
+    );
+  }
+
+  return ethers.BigNumber.from(stringValue);
+}
+
 export function useBatchDeploy() {
   const { address, provider } = useWallet();
   const [isBatchDeploying, setIsBatchDeploying] = useState(false);
@@ -86,18 +114,39 @@ export function useBatchDeploy() {
         const paramType = param.type;
 
         if (paramType?.startsWith('uint') || paramType?.startsWith('int')) {
-          return ethers.BigNumber.from(arg);
+          return toBigNumberSafe(arg);
         }
         if (paramType === 'bool') {
-          return arg === 'true' || arg === true;
+          const trimmedArg = typeof arg === 'string' ? arg.trim() : arg;
+          return trimmedArg === 'true' || trimmedArg === true;
         }
         if (paramType?.includes('[]')) {
-          try {
-            return JSON.parse(arg);
-          } catch {
-            return arg.split(',').map((item: string) => item.trim());
+          let arrayValue: any[];
+          
+          // Parse array if it's a string
+          if (typeof arg === 'string') {
+            try {
+              arrayValue = JSON.parse(arg);
+            } catch {
+              arrayValue = arg.split(',').map((item: string) => item.trim());
+            }
+          } else {
+            arrayValue = Array.isArray(arg) ? arg : [arg];
           }
+
+          // If it's an array of integers, convert each element safely
+          if (paramType.match(/u?int\d*\[\]/)) {
+            return arrayValue.map((item) => toBigNumberSafe(item));
+          }
+
+          return arrayValue;
         }
+        
+        // For string types, trim whitespace
+        if (typeof arg === 'string') {
+          return arg.trim();
+        }
+        
         return arg;
       });
 

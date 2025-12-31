@@ -29,6 +29,34 @@ interface ExecutionState {
   executionId?: string;
 }
 
+/**
+ * Safely converts a value to BigNumber, handling whitespace and validation
+ */
+function toBigNumberSafe(value: unknown): ethers.BigNumber {
+  if (ethers.BigNumber.isBigNumber(value)) {
+    return value;
+  }
+
+  let stringValue: string;
+
+  if (typeof value === 'string') {
+    stringValue = value.trim();
+  } else if (typeof value === 'number') {
+    stringValue = value.toString();
+  } else {
+    stringValue = String(value).trim();
+  }
+
+  // Validate the string is a valid integer (positive, negative, or zero)
+  if (!/^-?\d+$/.test(stringValue)) {
+    throw new Error(
+      `Invalid integer value for BigNumber: "${stringValue}". Expected a valid integer string.`
+    );
+  }
+
+  return ethers.BigNumber.from(stringValue);
+}
+
 export function useRecipeExecutor() {
   const { address, provider } = useWallet();
   const [executionState, setExecutionState] = useState<ExecutionState>({
@@ -85,18 +113,39 @@ export function useRecipeExecutor() {
 
         // Type conversion
         if (paramType?.startsWith('uint') || paramType?.startsWith('int')) {
-          return ethers.BigNumber.from(resolvedValue);
+          return toBigNumberSafe(resolvedValue);
         }
         if (paramType === 'bool') {
-          return resolvedValue === 'true' || resolvedValue === true;
+          const trimmedValue = typeof resolvedValue === 'string' ? resolvedValue.trim() : resolvedValue;
+          return trimmedValue === 'true' || trimmedValue === true;
         }
         if (paramType?.includes('[]')) {
-          try {
-            return JSON.parse(resolvedValue);
-          } catch {
-            return resolvedValue.split(',').map((item: string) => item.trim());
+          let arrayValue: any[];
+          
+          // Parse array if it's a string
+          if (typeof resolvedValue === 'string') {
+            try {
+              arrayValue = JSON.parse(resolvedValue);
+            } catch {
+              arrayValue = resolvedValue.split(',').map((item: string) => item.trim());
+            }
+          } else {
+            arrayValue = Array.isArray(resolvedValue) ? resolvedValue : [resolvedValue];
           }
+
+          // If it's an array of integers, convert each element safely
+          if (paramType.match(/u?int\d*\[\]/)) {
+            return arrayValue.map((item) => toBigNumberSafe(item));
+          }
+
+          return arrayValue;
         }
+        
+        // For string types, trim whitespace
+        if (typeof resolvedValue === 'string') {
+          return resolvedValue.trim();
+        }
+        
         return resolvedValue;
       });
     },
@@ -236,18 +285,39 @@ export function useRecipeExecutor() {
       
       // Type conversion based on arg.type
       if (arg.type.startsWith('uint') || arg.type.startsWith('int')) {
-        return ethers.BigNumber.from(resolvedValue);
+        return toBigNumberSafe(resolvedValue);
       }
       if (arg.type === 'bool') {
-        return resolvedValue === 'true' || resolvedValue === true;
+        const trimmedValue = typeof resolvedValue === 'string' ? resolvedValue.trim() : resolvedValue;
+        return trimmedValue === 'true' || trimmedValue === true;
       }
       if (arg.type.includes('[]')) {
-        try {
-          return JSON.parse(resolvedValue);
-        } catch {
-          return resolvedValue.split(',').map((item: string) => item.trim());
+        let arrayValue: any[];
+        
+        // Parse array if it's a string
+        if (typeof resolvedValue === 'string') {
+          try {
+            arrayValue = JSON.parse(resolvedValue);
+          } catch {
+            arrayValue = resolvedValue.split(',').map((item: string) => item.trim());
+          }
+        } else {
+          arrayValue = Array.isArray(resolvedValue) ? resolvedValue : [resolvedValue];
         }
+
+        // If it's an array of integers, convert each element safely
+        if (arg.type.match(/u?int\d*\[\]/)) {
+          return arrayValue.map((item) => toBigNumberSafe(item));
+        }
+
+        return arrayValue;
       }
+      
+      // For string types, trim whitespace
+      if (typeof resolvedValue === 'string') {
+        return resolvedValue.trim();
+      }
+      
       return resolvedValue;
     });
 
