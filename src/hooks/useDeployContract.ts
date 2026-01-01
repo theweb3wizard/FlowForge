@@ -399,8 +399,8 @@ export function useDeployContract() {
       setProgress(15);
       const networkResult = await detectNetwork(provider);
       
-      if (!networkResult.isCorrectNetwork) {
-        throw new Error(networkResult.error || 'Please connect to a supported network.');
+      if (!networkResult.isCorrectNetwork || !networkResult.config) {
+        throw new Error(networkResult.error || 'Could not detect network. Please connect your wallet.');
       }
   
       const network = networkResult.config.type as NetworkType;

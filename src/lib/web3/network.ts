@@ -23,7 +23,7 @@ export const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
     rpcUrl: '', // Add when mainnet is live
     explorerUrl: '',
     symbol: 'BDAG',
-    isSupported: false, // Enable when mainnet launches
+    isSupported: true, // Now considered supported
   },
   'local': {
     chainId: 31337,
