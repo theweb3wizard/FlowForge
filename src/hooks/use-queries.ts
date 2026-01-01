@@ -3,7 +3,9 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   getAllDeployments,
+  getDeploymentsCount,
   getDeploymentsByAddress,
+  getMyDeploymentsCount,
   getDeploymentByContractAddress,
 } from '@/lib/supabase/deployments';
 import { getActiveTemplates, getTemplateById } from '@/lib/supabase/templates';
@@ -27,23 +29,44 @@ export function useTemplate(id: string) {
   });
 }
 
-// Hook to fetch all public deployments
-export function useAllDeployments() {
+// Hook to fetch all public deployments with pagination
+export function useAllDeployments(page: number) {
   return useQuery({
-    queryKey: ['deployments', 'all'],
-    queryFn: getAllDeployments,
+    queryKey: ['deployments', 'all', page],
+    queryFn: () => getAllDeployments(page),
+    placeholderData: (previousData) => previousData,
   });
 }
 
-// Hook to fetch deployments for the connected user
-export function useMyDeployments() {
+// Hook to fetch total count of public deployments
+export function useAllDeploymentsCount() {
+    return useQuery({
+        queryKey: ['deployments', 'all', 'count'],
+        queryFn: getDeploymentsCount,
+    });
+}
+
+// Hook to fetch deployments for the connected user with pagination
+export function useMyDeployments(page: number) {
   const { address, isConnected } = useWallet();
   return useQuery({
-    queryKey: ['deployments', 'my', address],
-    queryFn: () => getDeploymentsByAddress(address!),
+    queryKey: ['deployments', 'my', address, page],
+    queryFn: () => getDeploymentsByAddress(address!, page),
     enabled: isConnected && !!address,
+    placeholderData: (previousData) => previousData,
   });
 }
+
+// Hook to fetch total count of user's deployments
+export function useMyDeploymentsCount() {
+    const { address, isConnected } = useWallet();
+    return useQuery({
+        queryKey: ['deployments', 'my', address, 'count'],
+        queryFn: () => getMyDeploymentsCount(address!),
+        enabled: isConnected && !!address,
+    });
+}
+
 
 // Hook to fetch a single deployment by its contract address
 export function useDeployment(contractAddress: string) {

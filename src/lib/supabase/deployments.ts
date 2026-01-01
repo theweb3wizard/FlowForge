@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { Deployment, CreateDeploymentPayload, DeploymentWithTemplate } from '@/types/deployment';
 
+const PAGE_SIZE = 5;
+
 /**
  * Save a new deployment to the database
  */
@@ -21,10 +23,12 @@ export async function createDeployment(payload: CreateDeploymentPayload): Promis
 }
 
 /**
- * Fetch all deployments (public feed)
+ * Fetch all deployments (public feed) with pagination
  */
-export async function getAllDeployments(): Promise<DeploymentWithTemplate[]> {
-  
+export async function getAllDeployments(page: number): Promise<DeploymentWithTemplate[]> {
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
   const { data, error } = await supabase
     .from('deployments')
     .select(`
@@ -33,7 +37,7 @@ export async function getAllDeployments(): Promise<DeploymentWithTemplate[]> {
     `)
     .eq('deployment_status', 'success')
     .order('deployed_at', { ascending: false })
-    .limit(100);
+    .range(from, to);
 
   if (error) {
     console.error('Error fetching deployments:', error);
@@ -44,10 +48,29 @@ export async function getAllDeployments(): Promise<DeploymentWithTemplate[]> {
 }
 
 /**
- * Fetch deployments by deployer address (user's contracts)
+ * Get total count of all deployments
  */
-export async function getDeploymentsByAddress(address: string): Promise<DeploymentWithTemplate[]> {
-  
+export async function getDeploymentsCount(): Promise<number> {
+    const { count, error } = await supabase
+      .from('deployments')
+      .select('*', { count: 'exact', head: true })
+      .eq('deployment_status', 'success');
+
+    if (error) {
+        console.error('Error fetching deployments count:', error);
+        throw error;
+    }
+    return count || 0;
+}
+
+
+/**
+ * Fetch deployments by deployer address (user's contracts) with pagination
+ */
+export async function getDeploymentsByAddress(address: string, page: number): Promise<DeploymentWithTemplate[]> {
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
   const { data, error } = await supabase
     .from('deployments')
     .select(`
@@ -55,7 +78,8 @@ export async function getDeploymentsByAddress(address: string): Promise<Deployme
       template:contract_templates(*)
     `)
     .ilike('deployer_address', address) // Use ilike for case-insensitive matching
-    .order('deployed_at', { ascending: false });
+    .order('deployed_at', { ascending: false })
+    .range(from, to);
 
   if (error) {
     console.error('Error fetching user deployments:', error);
@@ -64,6 +88,23 @@ export async function getDeploymentsByAddress(address: string): Promise<Deployme
 
   return (data as any) || [];
 }
+
+/**
+ * Get total count of deployments by a specific address
+ */
+export async function getMyDeploymentsCount(address: string): Promise<number> {
+    const { count, error } = await supabase
+        .from('deployments')
+        .select('*', { count: 'exact', head: true })
+        .ilike('deployer_address', address);
+    
+    if (error) {
+        console.error('Error fetching my deployments count:', error);
+        throw error;
+    }
+    return count || 0;
+}
+
 
 /**
  * Fetch a single deployment by contract address
