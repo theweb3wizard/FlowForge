@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Recipe, StepResult } from '@/types/recipe';
+import { Recipe, StepResult, RecipeStep, DeployStep } from '@/types/recipe';
 import { ContractTemplate } from '@/types/template';
 import { useRecipeExecutor } from '@/hooks/useRecipeExecutor';
 import { getTemplateById } from '@/lib/supabase/templates';
@@ -21,7 +21,8 @@ import {
   Loader2, 
   ExternalLink, 
   AlertCircle,
-  Layers 
+  Layers,
+  Send
 } from 'lucide-react';
 import { getExplorerTxUrl } from '@/lib/web3/network';
 import { Confetti } from '../common/Confetti';
@@ -39,7 +40,7 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
   const router = useRouter();
   const { executeRecipe, executionState } = useRecipeExecutor();
   const [templates, setTemplates] = useState<Map<string, ContractTemplate>>(new Map());
-  const [stepResults, setStepResults] = useState<StepResult[]>([]);
+  const [stepResults, setStepResults] = useState<(StepResult & { sourceRecipeStep?: RecipeStep })[]>([]);
   const [hasStarted, setHasStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
 
@@ -47,6 +48,7 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
     if (recipe && isOpen && !hasStarted) {
       loadTemplatesAndExecute();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipe, isOpen]);
 
   const loadTemplatesAndExecute = async () => {
@@ -54,11 +56,18 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
 
     setHasStarted(true);
     
+    const initialResults = recipe.steps.map((step, index) => ({
+      stepIndex: index,
+      status: 'pending',
+      sourceRecipeStep: step
+    }));
+    setStepResults(initialResults as any);
+    
     // Load all required templates
     const templateMap = new Map<string, ContractTemplate>();
     
     for (const step of recipe.steps) {
-      if (step.type === 'deploy') {
+      if (step.type === 'deploy' && !templateMap.has(step.templateId)) {
         const template = await getTemplateById(step.templateId);
         if (template) {
           templateMap.set(step.templateId, template);
@@ -76,7 +85,7 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
         (stepIndex, result) => {
           setStepResults((prev) => {
             const newResults = [...prev];
-            newResults[stepIndex] = result;
+            newResults[stepIndex] = { ...newResults[stepIndex], ...result };
             return newResults;
           });
         }
@@ -182,7 +191,7 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
             <div className="space-y-3">
               {recipe.steps.map((step, index) => {
                 const result = stepResults[index];
-                const isCurrentStep = executionState.currentStepIndex === index;
+                const isCurrentStep = executionState.currentStepIndex === index && executionState.isExecuting;
                 const template = step.type === 'deploy' ? templates.get(step.templateId) : null;
 
                 return (
@@ -201,7 +210,7 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3 flex-1">
                         <div
-                          className={`flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm ${
+                          className={`flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm flex-shrink-0 ${
                             result?.status === 'success'
                               ? 'bg-green-500 text-white'
                               : result?.status === 'error'
@@ -216,8 +225,10 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            {step.type === 'deploy' && template && (
-                              <span className="text-lg">{template.icon}</span>
+                            {step.type === 'deploy' && template ? (
+                                <span className="text-lg">{template.icon}</span>
+                            ) : (
+                                <Send className="h-4 w-4 text-muted-foreground" />
                             )}
                             <h4 className="font-medium">
                               {step.type === 'deploy'
@@ -227,9 +238,9 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
                           </div>
 
                           <p className="text-xs text-muted-foreground mb-2">
-                            {step.type === 'deploy'
-                              ? template?.name || 'Unknown template'
-                              : step.isWrite ? 'Write function' : 'Read function'}
+                             {step.type === 'deploy' && template
+                              ? template.name
+                              : `Interaction step`}
                           </p>
 
                           {/* Result */}
@@ -262,31 +273,31 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
                               <p className="text-xs text-red-600 font-medium">
                                 ❌ Step failed
                               </p>
-                              <p className="text-xs text-red-600">{result.error}</p>
+                              <p className="text-xs text-red-600 break-words">{result.error}</p>
                             </div>
                           )}
 
-                          {isCurrentStep && !result && (
+                          {isCurrentStep && (
                             <p className="text-xs text-primary font-medium flex items-center gap-2">
                               <Loader2 className="h-3 w-3 animate-spin" />
                               Executing... Please confirm in wallet
                             </p>
                           )}
 
-                          {!result && !isCurrentStep && (
+                          {result?.status === 'pending' && !isCurrentStep && (
                             <p className="text-xs text-muted-foreground">⏳ Waiting...</p>
                           )}
                         </div>
                       </div>
 
-                      <div className="ml-2">
+                      <div className="ml-2 flex-shrink-0">
                         {result?.status === 'success' && (
                           <CheckCircle className="h-5 w-5 text-green-500" />
                         )}
                         {result?.status === 'error' && (
                           <XCircle className="h-5 w-5 text-red-500" />
                         )}
-                        {isCurrentStep && !result && (
+                        {isCurrentStep && (
                           <Loader2 className="h-5 w-5 animate-spin text-primary" />
                         )}
                       </div>

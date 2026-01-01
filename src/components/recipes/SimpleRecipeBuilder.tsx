@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Recipe, RecipeStep, DeployStep } from '@/types/recipe';
+import { useState, useEffect } from 'react';
+import { Recipe, RecipeStep, DeployStep, InteractStep, VariableReference } from '@/types/recipe';
 import { ContractTemplate } from '@/types/template';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,11 +16,26 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
-import { Plus, Trash2, Layers, Save } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Plus, Trash2, Layers, Save, Send, Link as LinkIcon, Edit } from 'lucide-react';
 import { createRecipe } from '@/lib/supabase/recipes';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
+import { separateFunctions } from '@/lib/abi/parser';
 
 interface SimpleRecipeBuilderProps {
   isOpen: boolean;
@@ -38,8 +53,22 @@ export function SimpleRecipeBuilder({
   const { address } = useWallet();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [steps, setSteps] = useState<DeployStep[]>([]);
+  const [steps, setSteps] = useState<RecipeStep[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'deploy' | 'interact'>('deploy');
+
+  const getAvailableVariables = (currentStepIndex: number) => {
+    const variables: { label: string; value: VariableReference }[] = [];
+    steps.slice(0, currentStepIndex).forEach((step, index) => {
+      if (step.type === 'deploy') {
+        variables.push({
+          label: `Step ${index + 1}: Contract Address`,
+          value: { source: 'step', stepIndex: index, property: 'contractAddress' },
+        });
+      }
+    });
+    return variables;
+  };
 
   const addDeployStep = (template: ContractTemplate) => {
     const newStep: DeployStep = {
@@ -54,30 +83,51 @@ export function SimpleRecipeBuilder({
     };
 
     setSteps([...steps, newStep]);
-    toast.success('Step added', {
-      description: `Added ${template.name} deployment`,
+    toast.success('Deployment step added', {
+      description: `Added ${template.name}`,
     });
   };
+
+  const addInteractStep = () => {
+    const newStep: InteractStep = {
+      type: 'interact',
+      contractSource: '', // User will select this
+      functionName: '',
+      functionArgs: [],
+      isWrite: true,
+    };
+    setSteps([...steps, newStep]);
+  };
+
 
   const removeStep = (index: number) => {
     setSteps(steps.filter((_, i) => i !== index));
   };
 
-  const updateStepName = (index: number, contractName: string) => {
+  const updateStep = (index: number, updates: Partial<RecipeStep>) => {
     const newSteps = [...steps];
-    newSteps[index] = { ...newSteps[index], contractName };
+    newSteps[index] = { ...newSteps[index], ...updates };
     setSteps(newSteps);
   };
-
-  const updateStepArg = (stepIndex: number, argIndex: number, value: string) => {
+  
+  const updateArgValue = (stepIndex: number, argIndex: number, value: string | VariableReference) => {
     const newSteps = [...steps];
     const step = { ...newSteps[stepIndex] };
-    const args = [...step.constructorArgs];
-    args[argIndex] = { ...args[argIndex], value };
-    step.constructorArgs = args;
+
+    if (step.type === 'deploy') {
+        const args = [...step.constructorArgs];
+        args[argIndex] = { ...args[argIndex], value };
+        step.constructorArgs = args;
+    } else if (step.type === 'interact') {
+        const args = [...step.functionArgs];
+        args[argIndex] = { ...args[argIndex], value };
+        step.functionArgs = args;
+    }
+
     newSteps[stepIndex] = step;
     setSteps(newSteps);
   };
+
 
   const handleSave = async () => {
     if (!address) {
@@ -95,39 +145,18 @@ export function SimpleRecipeBuilder({
       return;
     }
 
-    // Validate all steps have required data
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
-      if (!step.contractName.trim()) {
-        toast.error(`Step ${i + 1}: Contract name is required`);
-        return;
-      }
-
-      for (let j = 0; j < step.constructorArgs.length; j++) {
-        const arg = step.constructorArgs[j];
-        if (!arg.value || arg.value.toString().trim() === '') {
-          toast.error(`Step ${i + 1}: Parameter "${arg.name}" is required`);
-          return;
-        }
-      }
-    }
-
     setIsSaving(true);
-
     try {
       const recipe = await createRecipe({
         name: name.trim(),
         description: description.trim(),
         creator_address: address,
-        steps: steps as RecipeStep[],
+        steps: steps,
         is_public: false,
         tags: [],
       });
-
       if (recipe) {
-        toast.success('Recipe created!', {
-          description: `${name} is ready to use`,
-        });
+        toast.success('Recipe created!', { description: `${name} is ready to use` });
         onRecipeCreated(recipe);
         handleClose();
       } else {
@@ -148,171 +177,274 @@ export function SimpleRecipeBuilder({
     onClose();
   };
 
+  const renderStepContent = (step: RecipeStep, stepIndex: number) => {
+    if (step.type === 'deploy') {
+      const template = templates.find((t) => t.id === step.templateId);
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Contract Name *</Label>
+            <Input
+              value={step.contractName}
+              onChange={(e) => updateStep(stepIndex, { contractName: e.target.value })}
+              placeholder="e.g., My Token"
+              className="mt-1"
+            />
+          </div>
+          {step.constructorArgs.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Parameters</Label>
+              {step.constructorArgs.map((arg, argIndex) => (
+                <div key={argIndex}>
+                  <Label className="text-xs text-muted-foreground">{arg.name} ({arg.type}) *</Label>
+                   <div className="flex items-center gap-1 mt-1">
+                      <Input
+                        value={typeof arg.value === 'string' ? arg.value : `Var(Step ${arg.value.stepIndex + 1})`}
+                        onChange={(e) => updateArgValue(stepIndex, argIndex, e.target.value)}
+                        placeholder={`Enter ${arg.name}`}
+                        disabled={typeof arg.value !== 'string'}
+                      />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                            <LinkIcon className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          {getAvailableVariables(stepIndex).map((variable, vIndex) => (
+                            <DropdownMenuItem key={vIndex} onSelect={() => updateArgValue(stepIndex, argIndex, variable.value)}>
+                              {variable.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (step.type === 'interact') {
+        const deployedSteps = steps.slice(0, stepIndex).filter(s => s.type === 'deploy') as DeployStep[];
+        
+        let selectedTemplate: ContractTemplate | undefined;
+        if (typeof step.contractSource === 'object') {
+            const sourceStep = steps[step.contractSource.stepIndex];
+            if (sourceStep.type === 'deploy') {
+                selectedTemplate = templates.find(t => t.id === sourceStep.templateId);
+            }
+        }
+        
+        const { readFunctions, writeFunctions } = selectedTemplate ? separateFunctions(selectedTemplate.abi) : { readFunctions: [], writeFunctions: [] };
+        const allFunctions = [...writeFunctions, ...readFunctions];
+
+        const selectedFunction = allFunctions.find(f => f.name === step.functionName);
+
+        return (
+            <div className="space-y-3">
+                 <div>
+                    <Label className="text-xs">Target Contract *</Label>
+                    <Select
+                        value={typeof step.contractSource === 'string' ? step.contractSource : `step:${step.contractSource.stepIndex}`}
+                        onValueChange={(val) => {
+                            if (val.startsWith('step:')) {
+                                const index = parseInt(val.split(':')[1]);
+                                updateStep(stepIndex, { contractSource: { source: 'step', stepIndex: index, property: 'contractAddress' }, functionName: '', functionArgs: [] });
+                            } else {
+                                updateStep(stepIndex, { contractSource: val, functionName: '', functionArgs: [] });
+                            }
+                        }}
+                    >
+                        <SelectTrigger className="w-full mt-1">
+                            <SelectValue placeholder="Select contract source..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {deployedSteps.map((dStep, dIndex) => (
+                                <SelectItem key={dIndex} value={`step:${dIndex}`}>
+                                    Step {dIndex + 1}: {dStep.contractName}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                 </div>
+
+                 {step.contractSource && selectedTemplate && (
+                    <div>
+                        <Label className="text-xs">Function *</Label>
+                        <Select
+                            value={step.functionName}
+                            onValueChange={(funcName) => {
+                                const func = allFunctions.find(f => f.name === funcName);
+                                if (func) {
+                                    const isWrite = func.stateMutability === 'nonpayable' || func.stateMutability === 'payable';
+                                    const newArgs = (func.inputs || []).map(inp => ({ name: inp.name, type: inp.type, value: '' }));
+                                    updateStep(stepIndex, { functionName: funcName, functionArgs: newArgs, isWrite });
+                                }
+                            }}
+                        >
+                            <SelectTrigger className="w-full mt-1">
+                                <SelectValue placeholder="Select a function..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {writeFunctions.length > 0 && <Label className="px-2 text-xs text-muted-foreground">Write</Label>}
+                                {writeFunctions.map(f => <SelectItem key={f.name} value={f.name}>{f.name}</SelectItem>)}
+                                {readFunctions.length > 0 && <Label className="px-2 text-xs text-muted-foreground">Read</Label>}
+                                {readFunctions.map(f => <SelectItem key={f.name} value={f.name}>{f.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                 )}
+
+                {selectedFunction && step.functionArgs.length > 0 && (
+                     <div className="space-y-2 pt-2">
+                        <Label className="text-xs font-medium">Parameters</Label>
+                        {step.functionArgs.map((arg, argIndex) => (
+                           <div key={argIndex}>
+                                <Label className="text-xs text-muted-foreground">{arg.name} ({arg.type}) *</Label>
+                                 <div className="flex items-center gap-1 mt-1">
+                                    <Input
+                                        value={typeof arg.value === 'string' ? arg.value : `Var(Step ${arg.value.stepIndex + 1})`}
+                                        onChange={(e) => updateArgValue(stepIndex, argIndex, e.target.value)}
+                                        placeholder={`Enter ${arg.name}`}
+                                        disabled={typeof arg.value !== 'string'}
+                                    />
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                            <LinkIcon className="h-4 w-4" />
+                                        </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                        {getAvailableVariables(stepIndex).map((variable, vIndex) => (
+                                            <DropdownMenuItem key={vIndex} onSelect={() => updateArgValue(stepIndex, argIndex, variable.value)}>
+                                            {variable.label}
+                                            </DropdownMenuItem>
+                                        ))}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        )
+    }
+    return null;
+  };
+
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Create Deployment Recipe</DialogTitle>
           <DialogDescription>
-            Build a repeatable multi-step deployment workflow
+            Build a repeatable multi-step deployment workflow by chaining deployments and interactions.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
-          <div className="grid grid-cols-2 gap-4 h-full">
-            {/* Left: Recipe Config */}
-            <div className="space-y-4">
+        <div className="flex-1 grid grid-cols-2 gap-6 overflow-hidden pt-4">
+          {/* Left: Recipe Config & Templates */}
+          <div className="flex flex-col gap-4 overflow-hidden">
+            <div className="space-y-4 flex-shrink-0">
               <div>
                 <Label htmlFor="recipe-name">Recipe Name *</Label>
-                <Input
-                  id="recipe-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g., Launch Token Protocol"
-                  className="mt-1"
-                />
+                <Input id="recipe-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Launch Token Protocol" className="mt-1" />
               </div>
 
               <div>
                 <Label htmlFor="recipe-description">Description</Label>
-                <Textarea
-                  id="recipe-description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe what this recipe does..."
-                  className="mt-1"
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <Label className="mb-2 block">Available Templates</Label>
-                <ScrollArea className="h-[400px] border rounded-lg p-2">
-                  <div className="space-y-2">
-                    {templates.map((template) => (
-                      <Card
-                        key={template.id}
-                        className="p-3 cursor-pointer hover:bg-accent transition-colors"
-                        onClick={() => addDeployStep(template)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl">{template.icon}</span>
-                            <div>
-                              <p className="font-medium text-sm">{template.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {template.category}
-                              </p>
-                            </div>
-                          </div>
-                          <Button size="sm" variant="ghost">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </ScrollArea>
+                <Textarea id="recipe-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe what this recipe does..." className="mt-1" rows={3}/>
               </div>
             </div>
-
-            {/* Right: Recipe Steps */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Recipe Steps ({steps.length})</Label>
-                {steps.length > 0 && (
-                  <Button
-                    size="sm"
-                    onClick={handleSave}
-                    disabled={isSaving}
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? 'Saving...' : 'Save Recipe'}
-                  </Button>
-                )}
-              </div>
-
-              {steps.length === 0 ? (
-                <Card className="p-8 text-center border-dashed">
-                  <Layers className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-                  <p className="text-sm text-muted-foreground">
-                    No steps yet. Click on a template to add it to your recipe.
-                  </p>
-                </Card>
-              ) : (
-                <ScrollArea className="h-[500px]">
-                  <div className="space-y-3 pr-4">
-                    {steps.map((step, stepIndex) => {
-                      const template = templates.find((t) => t.id === step.templateId);
-
-                      return (
-                        <Card key={stepIndex} className="p-4">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
-                                {stepIndex + 1}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {template && <span className="text-xl">{template.icon}</span>}
+            
+            <div className="flex-1 flex flex-col min-h-0">
+                <Label className="mb-2 block flex-shrink-0">Add a Step</Label>
+                 <div className="flex border-b mb-2">
+                    <button onClick={() => setActiveTab('deploy')} className={`flex-1 py-2 text-sm font-medium ${activeTab === 'deploy' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}>Deploy</button>
+                    <button onClick={() => setActiveTab('interact')} className={`flex-1 py-2 text-sm font-medium ${activeTab === 'interact' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}>Interact</button>
+                </div>
+                 <ScrollArea className="flex-1">
+                  <div className="space-y-2 pr-4">
+                    {activeTab === 'deploy' ? (
+                        templates.map((template) => (
+                        <Card key={template.id} className="p-3 cursor-pointer hover:bg-accent/10 transition-colors" onClick={() => addDeployStep(template)}>
+                            <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xl">{template.icon}</span>
                                 <div>
-                                  <Badge variant="secondary">Deploy</Badge>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {template?.name}
-                                  </p>
+                                <p className="font-medium text-sm">{template.name}</p>
+                                <p className="text-xs text-muted-foreground">{template.category}</p>
                                 </div>
-                              </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeStep(stepIndex)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-
-                          <div className="space-y-3">
-                            <div>
-                              <Label className="text-xs">Contract Name *</Label>
-                              <Input
-                                value={step.contractName}
-                                onChange={(e) => updateStepName(stepIndex, e.target.value)}
-                                placeholder="e.g., My Token"
-                                className="mt-1"
-                              />
+                            <Button size="sm" variant="ghost"><Plus className="h-4 w-4" /></Button>
                             </div>
-
-                            {step.constructorArgs.length > 0 && (
-                              <div className="space-y-2">
-                                <Label className="text-xs font-medium">Parameters</Label>
-                                {step.constructorArgs.map((arg, argIndex) => (
-                                  <div key={argIndex}>
-                                    <Label className="text-xs text-muted-foreground">
-                                      {arg.name} ({arg.type}) *
-                                    </Label>
-                                    <Input
-                                      value={arg.value as string}
-                                      onChange={(e) =>
-                                        updateStepArg(stepIndex, argIndex, e.target.value)
-                                      }
-                                      placeholder={`Enter ${arg.name}`}
-                                      className="mt-1"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
                         </Card>
-                      );
-                    })}
+                        ))
+                    ) : (
+                         <Card className="p-3 cursor-pointer hover:bg-accent/10 transition-colors" onClick={addInteractStep}>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Send className="h-5 w-5 text-muted-foreground" />
+                                    <div>
+                                        <p className="font-medium text-sm">Call a Function</p>
+                                        <p className="text-xs text-muted-foreground">Interact with a deployed contract</p>
+                                    </div>
+                                </div>
+                                <Button size="sm" variant="ghost"><Plus className="h-4 w-4" /></Button>
+                            </div>
+                        </Card>
+                    )}
                   </div>
                 </ScrollArea>
-              )}
             </div>
           </div>
+
+          {/* Right: Recipe Steps */}
+          <div className="flex flex-col gap-4 overflow-hidden">
+            <Label>Recipe Steps ({steps.length})</Label>
+            {steps.length === 0 ? (
+              <Card className="p-8 text-center border-dashed flex-1 flex flex-col justify-center">
+                <Layers className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                <p className="text-sm text-muted-foreground">No steps yet. Click on a template or action to add it to your recipe.</p>
+              </Card>
+            ) : (
+              <ScrollArea className="flex-1 -mr-4">
+                <div className="space-y-3 pr-4">
+                  {steps.map((step, stepIndex) => (
+                    <Card key={stepIndex} className="p-4 bg-muted/30">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm flex-shrink-0">{stepIndex + 1}</div>
+                          <div>
+                            <Badge variant={step.type === 'deploy' ? 'secondary' : 'outline'}>{step.type}</Badge>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {step.type === 'deploy' ? templates.find(t => t.id === step.templateId)?.name : 'Function Call'}
+                            </p>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => removeStep(stepIndex)} className="text-destructive hover:text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
+                      </div>
+                      {renderStepContent(step, stepIndex)}
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
         </div>
+
+        <DialogFooter>
+            <Button onClick={handleClose} variant="ghost">Cancel</Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving ? 'Saving...' : 'Save Recipe'}
+            </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

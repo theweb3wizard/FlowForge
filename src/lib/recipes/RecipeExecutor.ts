@@ -12,6 +12,7 @@ import { ContractTemplate } from '@/types/template';
 import { NetworkType } from '@/types/deployment';
 import { createDeployment } from '@/lib/supabase/deployments';
 import { getWeb3ErrorMessage } from '@/lib/errors';
+import { getTemplateById } from '../supabase/templates';
 
 /**
  * Safely converts a value to BigNumber, handling whitespace and validation
@@ -60,47 +61,54 @@ export class RecipeExecutor {
   /**
    * Resolve variable references in arguments
    */
-  private resolveValue(value: string | VariableReference, stepResults: StepResult[]): string {
-    if (typeof value === 'string') {
-      // It's a static value, but could be a placeholder that needs to be implemented.
-      // For now, we only handle direct variable references.
-      return value;
+    private resolveValue(value: string | VariableReference, stepResults: StepResult[]): string {
+        if (typeof value !== 'object' || value === null || !('source' in value)) {
+            // It's a static string value
+            return String(value);
+        }
+
+        if (value.source === 'step') {
+            const { stepIndex, property } = value;
+            const referencedStepResult = stepResults[stepIndex];
+
+            if (!referencedStepResult || referencedStepResult.status !== 'success') {
+                throw new Error(`Cannot resolve variable: Step ${stepIndex + 1} did not complete successfully.`);
+            }
+            
+            // Handle different properties
+            switch (property) {
+                case 'contractAddress':
+                    if (referencedStepResult.contractAddress) {
+                        return referencedStepResult.contractAddress;
+                    }
+                    break;
+                case 'transactionHash':
+                    if (referencedStepResult.transactionHash) {
+                        return referencedStepResult.transactionHash;
+                    }
+                    break;
+                case 'result':
+                     if (referencedStepResult.result !== undefined && referencedStepResult.result !== null) {
+                        return String(referencedStepResult.result);
+                    }
+                    break;
+            }
+
+            throw new Error(`Cannot resolve variable: Property "${property}" not found or is empty in the result of Step ${stepIndex + 1}.`);
+        }
+        
+        // Fallback for unexpected types
+        return String(value);
     }
-
-    if (typeof value === 'object' && value.source === 'step') {
-      const { stepIndex, property } = value;
-      const referencedStepResult = stepResults[stepIndex];
-
-      if (!referencedStepResult || referencedStepResult.status !== 'success') {
-        throw new Error(`Cannot resolve variable: Step ${stepIndex + 1} did not complete successfully.`);
-      }
-
-      if (property === 'contractAddress' && referencedStepResult.contractAddress) {
-        return referencedStepResult.contractAddress;
-      }
-      if (property === 'transactionHash' && referencedStepResult.transactionHash) {
-        return referencedStepResult.transactionHash;
-      }
-      if (property === 'result' && referencedStepResult.result !== undefined) {
-        return String(referencedStepResult.result);
-      }
-
-      throw new Error(`Cannot resolve variable: Property "${property}" not found in the result of Step ${stepIndex + 1}.`);
-    }
-    
-    // Fallback for unexpected types
-    return String(value);
-  }
   
   /**
    * Process constructor arguments with variable resolution
    */
-  private processConstructorArgs(args: any[], stepResults: StepResult[], templateParams: any[]): any[] {
+  private processArgs(args: any[], stepResults: StepResult[], abiParams: any[]): any[] {
     return args.map((arg, index) => {
-      const param = templateParams[index];
+      const param = abiParams[index];
       if (!param) return arg;
   
-      // Resolve variable if the argument is a VariableReference object
       const resolvedValue = this.resolveValue(arg, stepResults);
       const paramType = param.type;
   
@@ -115,7 +123,6 @@ export class RecipeExecutor {
       if (paramType?.includes('[]')) {
         let arrayValue: any[];
         
-        // Parse array if it's a string
         if (typeof resolvedValue === 'string') {
           try {
             arrayValue = JSON.parse(resolvedValue);
@@ -126,7 +133,6 @@ export class RecipeExecutor {
           arrayValue = Array.isArray(resolvedValue) ? resolvedValue : [resolvedValue];
         }
 
-        // If it's an array of integers, convert each element safely
         if (paramType.match(/u?int\d*\[\]/)) {
           return arrayValue.map((item) => toBigNumberSafe(item));
         }
@@ -162,7 +168,7 @@ export class RecipeExecutor {
     );
 
     const templateParams = Array.isArray(template.parameters) ? template.parameters : [];
-    const processedArgs = this.processConstructorArgs(
+    const processedArgs = this.processArgs(
       step.constructorArgs.map(arg => arg.value),
       stepResults,
       templateParams
@@ -236,24 +242,42 @@ export class RecipeExecutor {
   private async executeInteractStep(
     step: InteractStep,
     stepResults: StepResult[],
-    abi: any[]
   ): Promise<{ result?: any; transactionHash?: string }> {
     const contractAddress = this.resolveValue(step.contractSource, stepResults);
+
+    // To get the ABI, we need to find the original deployment step
+    let abi: any[] | undefined;
+    if (typeof step.contractSource === 'object' && step.contractSource.source === 'step') {
+        const deployStep = stepResults[step.contractSource.stepIndex];
+        // This is a weak link. We need to fetch the template ABI.
+        // Let's assume for now the recipe contains enough info, or we fetch it.
+        // The proper way is to look up the template from the original deployment step.
+        // This requires modifying how we track steps. Let's make an assumption and fetch.
+        const sourceRecipeStep = stepResults[step.contractSource.stepIndex].sourceRecipeStep as DeployStep | undefined;
+        if(sourceRecipeStep && sourceRecipeStep.type === 'deploy') {
+            const template = await getTemplateById(sourceRecipeStep.templateId);
+            abi = template?.abi;
+        }
+    }
+
+    if (!abi) {
+        throw new Error(`Could not determine ABI for interaction step targeting ${contractAddress}`);
+    }
+
     const contract = new ethers.Contract(contractAddress, abi, this.signer);
     const functionAbi = abi.find(
-      (item) => item.type === 'function' && item.name === step.functionName
+      (item: any) => item.type === 'function' && item.name === step.functionName
     );
 
     if (!functionAbi) {
       throw new Error(`Function "${step.functionName}" not found in ABI`);
     }
 
-    const processedArgs = step.functionArgs.map((arg) => {
-      const resolvedValue = this.resolveValue(arg.value, stepResults);
-      if (arg.type.startsWith('uint') || arg.type.startsWith('int')) return toBigNumberSafe(resolvedValue);
-      if (arg.type === 'bool') return resolvedValue.toString().toLowerCase() === 'true';
-      return resolvedValue;
-    });
+    const processedArgs = this.processArgs(
+        step.functionArgs.map(arg => arg.value),
+        stepResults,
+        functionAbi.inputs
+    );
 
     console.log(`🔧 [Recipe Engine] Calling ${step.functionName} on ${contractAddress}...`);
 
@@ -264,7 +288,7 @@ export class RecipeExecutor {
       return { transactionHash: tx.hash, result: receipt };
     } else {
       const result = await contract[step.functionName](...processedArgs);
-      return { result: result.toString() };
+      return { result };
     }
   }
 
@@ -294,8 +318,10 @@ export class RecipeExecutor {
           stepResult.contractAddress = result.contractAddress;
           stepResult.transactionHash = result.transactionHash;
         } else if (step.type === 'interact') {
-          // Placeholder for interaction logic
-           throw new Error('Interaction steps are not yet implemented in the executor.');
+           const result = await this.executeInteractStep(step, stepResults);
+           stepResult.status = 'success';
+           stepResult.transactionHash = result.transactionHash;
+           stepResult.result = result.result;
         }
 
         stepResult.completedAt = new Date().toISOString();

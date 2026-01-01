@@ -11,7 +11,9 @@ export interface DeployStep {
 
 export interface InteractStep {
   type: 'interact';
-  contractSource: string; // e.g., "step:0" or "address:0x123..."
+  // A reference to the contract to interact with.
+  // Can be a static address or a reference to a previous step's output.
+  contractSource: string | VariableReference;
   functionName: string;
   functionArgs: FunctionArg[];
   isWrite: boolean;
@@ -34,12 +36,12 @@ export interface FunctionArg {
 export interface VariableReference {
   source: 'step'; // Reference output from previous step
   stepIndex: number;
-  property: string; // e.g., "contractAddress", "transactionHash", "result"
+  property: 'contractAddress' | 'transactionHash' | 'result'; // The output property to use
 }
 
 export interface Recipe {
   id: string;
-  name: string;
+  name:string;
   description: string;
   creator_address: string;
   steps: RecipeStep[];
