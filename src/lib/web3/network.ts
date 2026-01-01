@@ -106,7 +106,7 @@ export function getNetworkIcon(chainId: number, name: string): string {
 /**
  * Detect current network with enhanced metadata
  */
-export async function detectNetwork(provider: any): Promise<NetworkDetectionResult> {
+export async function detectNetwork(provider: ethers.providers.Provider): Promise<NetworkDetectionResult> {
   try {
     if (!provider) {
       return {
@@ -226,7 +226,7 @@ export function getNetworkByChainId(chainId: number): NetworkConfig | undefined 
 /**
  * Get network config by type
  */
-export function getNetworkByType(type: NetworkType): NetworkConfig {
+export function getNetworkByType(type: NetworkType): NetworkConfig | undefined {
   return NETWORK_CONFIGS[type];
 }
 
