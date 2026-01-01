@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
-import { getDeploymentsByAddress } from '@/lib/supabase/deployments';
-import { DeploymentWithTemplate } from '@/types/deployment';
+import { useMyDeployments } from '@/hooks/use-queries';
 import { DeploymentCard } from './DeploymentCard';
 import { Button } from '../ui/button';
 import { Wallet } from 'lucide-react';
@@ -11,38 +9,8 @@ import Link from 'next/link';
 import { DeploymentCardSkeleton } from '@/components/common/LoadingSkeleton';
 
 export function MyContracts() {
-  const { address, isConnected } = useWallet();
-  const [deployments, setDeployments] = useState<DeploymentWithTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchMyDeployments() {
-      if (!address) {
-        setLoading(false);
-        setDeployments([]);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        const data = await getDeploymentsByAddress(address);
-        setDeployments(data);
-      } catch (err) {
-        console.error('Error fetching deployments:', err);
-        setError('Failed to load your deployments');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (isConnected) {
-        fetchMyDeployments();
-    } else {
-        setLoading(false);
-        setDeployments([]);
-    }
-  }, [address, isConnected]);
+  const { isConnected } = useWallet();
+  const { data: deployments = [], isLoading, error } = useMyDeployments();
 
   // Not connected state
   if (!isConnected) {
@@ -58,7 +26,7 @@ export function MyContracts() {
   }
 
   // Loading state
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         {[1, 2, 3].map((i) => (
@@ -73,7 +41,7 @@ export function MyContracts() {
     return (
       <div className="text-center py-16 border-dashed border-2 border-destructive/50 rounded-lg">
         <h3 className="text-lg font-medium text-destructive">Error Loading Contracts</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{error}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{error.message}</p>
       </div>
     );
   }

@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getDeploymentByContractAddress } from '@/lib/supabase/deployments';
-import { DeploymentWithTemplate } from '@/types/deployment';
+import { useDeployment } from '@/hooks/use-queries';
 import { formatNetworkName, getExplorerAddressUrl, getExplorerTxUrl } from '@/lib/web3/network';
 import { ReadFunctions } from '@/components/interaction/ReadFunctions';
 import { WriteFunctions } from '@/components/interaction/WriteFunctions';
@@ -16,28 +14,10 @@ export default function ContractInteractionPage() {
   const params = useParams();
   const address = params.address as string;
 
-  const [deployment, setDeployment] = useState<DeploymentWithTemplate | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: deployment, isLoading } = useDeployment(address);
   const [activeTab, setActiveTab] = useState<'read' | 'write'>('read');
 
-  useEffect(() => {
-    async function fetchDeployment() {
-      try {
-        const data = await getDeploymentByContractAddress(address);
-        setDeployment(data);
-      } catch (error) {
-        console.error('Error fetching deployment:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (address) {
-      fetchDeployment();
-    }
-  }, [address]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="container mx-auto p-8">
         <ContractDetailSkeleton />

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ContractTemplate } from '@/types/template';
-import { getActiveTemplates } from '@/lib/supabase/templates';
+import { useTemplates } from '@/hooks/use-queries';
 import { TemplateCard } from '@/components/templates/TemplateCard';
 import { DeploymentModal } from '@/components/deployment/DeploymentModal';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -11,24 +11,8 @@ import { TemplateCardSkeleton } from '@/components/common/LoadingSkeleton';
 import { BatchCart } from '@/components/batch/BatchCart';
 
 export default function Home() {
-  const [templates, setTemplates] = useState<ContractTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<ContractTemplate | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchTemplates() {
-      try {
-        const data = await getActiveTemplates();
-        setTemplates(data);
-      } catch (error) {
-        console.error('Error fetching templates:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchTemplates();
-  }, []);
+  const { data: templates = [], isLoading } = useTemplates();
 
   const handleSelect = (template: ContractTemplate) => {
     if (template.status === 'active') {
@@ -36,7 +20,7 @@ export default function Home() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-12">
         <header className="text-center mb-12">

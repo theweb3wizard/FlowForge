@@ -1,32 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
+import { useTemplates } from '@/hooks/use-queries';
 import { Recipe } from '@/types/recipe';
-import { ContractTemplate } from '@/types/template';
-import { getActiveTemplates } from '@/lib/supabase/templates';
 import { Button } from '@/components/ui/button';
 import { RecipeLibrary } from '@/components/recipes/RecipeLibrary';
 import { RecipeExecutorModal } from '@/components/recipes/RecipeExecutorModal';
 import { SimpleRecipeBuilder } from '@/components/recipes/SimpleRecipeBuilder';
 import { PlusCircle, BookOpen } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function RecipesPage() {
   const { address } = useWallet();
-  const [templates, setTemplates] = useState<ContractTemplate[]>([]);
+  const queryClient = useQueryClient();
+  const { data: templates = [] } = useTemplates();
   const [showBuilder, setShowBuilder] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [showExecutor, setShowExecutor] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
-  const loadTemplates = async () => {
-    const data = await getActiveTemplates();
-    setTemplates(data);
-  };
 
   const handleRunRecipe = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
@@ -34,7 +25,7 @@ export default function RecipesPage() {
   };
 
   const handleRecipeCreated = () => {
-    setRefreshKey((prev) => prev + 1); // Refresh library
+    queryClient.invalidateQueries({ queryKey: ['recipes', 'my', address] });
   };
 
   if (!address) {
@@ -67,7 +58,6 @@ export default function RecipesPage() {
       </div>
 
       <RecipeLibrary
-        key={refreshKey}
         onRunRecipe={handleRunRecipe}
         onViewRecipe={(recipe) => console.log('View:', recipe)}
       />
@@ -85,7 +75,8 @@ export default function RecipesPage() {
         onClose={() => {
           setShowExecutor(false);
           setSelectedRecipe(null);
-          setRefreshKey((prev) => prev + 1); // Refresh library after execution
+          queryClient.invalidateQueries({ queryKey: ['recipes'] });
+          queryClient.invalidateQueries({ queryKey: ['deployments'] });
         }}
       />
     </div>

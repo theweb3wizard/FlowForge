@@ -1,50 +1,39 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAllDeployments, subscribeToDeployments } from '@/lib/supabase/deployments';
-import { DeploymentWithTemplate } from '@/types/deployment';
+import { subscribeToDeployments } from '@/lib/supabase/deployments';
+import { useAllDeployments } from '@/hooks/use-queries';
 import { DeploymentCard } from './DeploymentCard';
 import { Button } from '../ui/button';
 import Link from 'next/link';
 import { DeploymentCardSkeleton } from '@/components/common/LoadingSkeleton';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function AllDeployments() {
-  const [deployments, setDeployments] = useState<DeploymentWithTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const {
+    data: deployments = [],
+    isLoading,
+    error,
+  } = useAllDeployments();
 
   useEffect(() => {
-    async function fetchDeployments() {
-      try {
-        setLoading(true);
-        const data = await getAllDeployments();
-        setDeployments(data);
-      } catch (err) {
-        console.error('Error fetching deployments:', err);
-        setError('Failed to load deployments');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchDeployments();
-
     // Subscribe to real-time updates
     const channel = subscribeToDeployments((payload) => {
       // Refetch on any insert or update to the deployments table
-      // A more optimized approach would be to update state locally, but this is simpler and effective.
       if ((payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') && payload.new.deployment_status === 'success') {
-        fetchDeployments();
+        // Invalidate the query to trigger a refetch
+        queryClient.invalidateQueries({ queryKey: ['deployments', 'all'] });
       }
     });
 
     return () => {
       channel.unsubscribe();
     };
-  }, []);
+  }, [queryClient]);
 
   // Loading state
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         {[1, 2, 3, 4, 5].map((i) => (
@@ -59,7 +48,7 @@ export function AllDeployments() {
      return (
       <div className="text-center py-16 border-dashed border-2 border-destructive/50 rounded-lg">
         <h3 className="text-lg font-medium text-destructive">Error Loading Contracts</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{error}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{error.message}</p>
       </div>
     );
   }

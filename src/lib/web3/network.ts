@@ -1,4 +1,3 @@
-
 import { NetworkConfig, NetworkDetectionResult, NetworkType } from '@/types/network';
 import { Chain } from 'wagmi/chains';
 import { mainnet, sepolia, polygon, arbitrum, polygonAmoy, arbitrumSepolia, optimism, optimismSepolia, base, baseSepolia, avalanche, avalancheFuji, bsc, bscTestnet } from 'wagmi/chains';
@@ -23,7 +22,7 @@ export const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
     rpcUrl: '', // Add when mainnet is live
     explorerUrl: '',
     symbol: 'BDAG',
-    isSupported: true, // Now considered supported
+    isSupported: false, // Enable when mainnet launches
   },
   'local': {
     chainId: 31337,
@@ -106,7 +105,29 @@ export function getNetworkIcon(chainId: number, name: string): string {
 /**
  * Detect current network with enhanced metadata
  */
-export async function detectNetwork(provider: ethers.providers.Provider): Promise<NetworkDetectionResult> {
+export function getNetworkIcon(chainId: number, name: string): string {
+  // Custom networks
+  if (chainId === 1043) return '💎'; // BlockDAG
+  if (chainId === 31337) return '🏠'; // Local
+  
+  const nameLower = name.toLowerCase();
+  
+  // Popular networks
+  if (nameLower.includes('ethereum') || nameLower.includes('sepolia') || nameLower.includes('goerli')) return '⟠';
+  if (nameLower.includes('polygon')) return '🟣';
+  if (nameLower.includes('arbitrum')) return '🔵';
+  if (nameLower.includes('optimism')) return '🔴';
+  if (nameLower.includes('base')) return '🔷';
+  if (nameLower.includes('avalanche')) return '🔺';
+  if (nameLower.includes('bsc') || nameLower.includes('binance')) return '🟡';
+  
+  return '⛓️'; // Default chain icon
+}
+
+/**
+ * Detect current network with enhanced metadata
+ */
+export async function detectNetwork(provider: any): Promise<NetworkDetectionResult> {
   try {
     if (!provider) {
       return {
@@ -181,7 +202,6 @@ export async function detectNetwork(provider: ethers.providers.Provider): Promis
       isCorrectNetwork: true,
       error: undefined
     };
-
   } catch (error) {
     return {
       config: null,
@@ -226,7 +246,7 @@ export function getNetworkByChainId(chainId: number): NetworkConfig | undefined 
 /**
  * Get network config by type
  */
-export function getNetworkByType(type: NetworkType): NetworkConfig | undefined {
+export function getNetworkByType(type: NetworkType): NetworkConfig {
   return NETWORK_CONFIGS[type];
 }
 

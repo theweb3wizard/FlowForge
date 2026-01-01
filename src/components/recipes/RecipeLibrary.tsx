@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useWallet } from '@/contexts/WalletContext';
+import { useState } from 'react';
+import { useRecipes } from '@/hooks/use-queries';
 import { Recipe } from '@/types/recipe';
-import { getRecipes } from '@/lib/supabase/recipes';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Play, Layers, Clock, User, TrendingUp } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Skeleton } from '../ui/skeleton';
 
 interface RecipeLibraryProps {
   onRunRecipe: (recipe: Recipe) => void;
@@ -17,42 +17,19 @@ interface RecipeLibraryProps {
 }
 
 export function RecipeLibrary({ onRunRecipe, onViewRecipe }: RecipeLibraryProps) {
-  const { address } = useWallet();
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'my' | 'public'>('my');
+  const { data: recipes = [], isLoading } = useRecipes(filter);
 
-  useEffect(() => {
-    loadRecipes();
-  }, [filter, address]);
-
-  const loadRecipes = async () => {
-    setLoading(true);
-    try {
-      if (filter === 'my' && address) {
-        const data = await getRecipes(address);
-        setRecipes(data);
-      } else if (filter === 'public') {
-        const data = await getRecipes(undefined, true);
-        setRecipes(data);
-      }
-    } catch (error) {
-      console.error('Error loading recipes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
-          <Card key={i} className="p-6 animate-pulse">
-            <div className="h-6 bg-muted rounded w-1/3 mb-3"></div>
-            <div className="h-4 bg-muted rounded w-2/3 mb-4"></div>
+          <Card key={i} className="p-6">
+            <Skeleton className="h-6 w-1/3 mb-3" />
+            <Skeleton className="h-4 w-2/3 mb-4" />
             <div className="flex gap-2">
-              <div className="h-6 bg-muted rounded w-16"></div>
-              <div className="h-6 bg-muted rounded w-16"></div>
+              <Skeleton className="h-6 w-16" />
+              <Skeleton className="h-6 w-16" />
             </div>
           </Card>
         ))}
@@ -72,11 +49,6 @@ export function RecipeLibrary({ onRunRecipe, onViewRecipe }: RecipeLibraryProps)
             ? 'Create your first deployment recipe to get started'
             : 'Check back later for community recipes'}
         </p>
-        {filter === 'my' && (
-          <Button onClick={() => onViewRecipe(null as any)}>
-            Create Your First Recipe
-          </Button>
-        )}
       </Card>
     );
   }
