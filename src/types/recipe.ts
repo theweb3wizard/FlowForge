@@ -62,6 +62,7 @@ export interface StepResult {
   error?: string;
   startedAt?: string;
   completedAt?: string;
+  sourceRecipeStep?: RecipeStep;
 }
 
 export interface RecipeExecution {

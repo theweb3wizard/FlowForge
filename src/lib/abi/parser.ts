@@ -1,4 +1,6 @@
 import { AbiFunction, AbiParameter, ParsedConstructor, AbiEvent, AbiError } from '@/types/abi';
+import { ContractTemplate } from '@/types/template';
+import { ethers } from 'ethers';
 
 /**
  * Extract constructor from ABI
@@ -165,35 +167,22 @@ export function validateInput(value: any, solidityType: string, param?: AbiParam
 
   // Unsigned integer validation
   if (solidityType.startsWith('uint')) {
-    const num = Number(value);
-    if (isNaN(num)) {
-      return { valid: false, error: 'Must be a valid number' };
+    try {
+        ethers.BigNumber.from(value);
+        return { valid: true };
+    } catch {
+        return { valid: false, error: 'Must be a valid integer' };
     }
-    if (num < 0) {
-      return { valid: false, error: 'Must be a positive number' };
-    }
-    // Check bit size (e.g., uint8 max is 255)
-    const bitSize = parseInt(solidityType.replace('uint', '')) || 256;
-    const maxValue = Math.pow(2, bitSize) - 1;
-    if (num > maxValue) {
-      return { valid: false, error: `Exceeds maximum value for ${solidityType} (${maxValue})` };
-    }
-    return { valid: true };
   }
 
   // Signed integer validation
   if (solidityType.startsWith('int')) {
-    const num = Number(value);
-    if (isNaN(num)) {
-      return { valid: false, error: 'Must be a valid number' };
+    try {
+        ethers.BigNumber.from(value);
+        return { valid: true };
+    } catch {
+        return { valid: false, error: 'Must be a valid integer' };
     }
-    const bitSize = parseInt(solidityType.replace('int', '')) || 256;
-    const maxValue = Math.pow(2, bitSize - 1) - 1;
-    const minValue = -Math.pow(2, bitSize - 1);
-    if (num > maxValue || num < minValue) {
-      return { valid: false, error: `Out of range for ${solidityType} (${minValue} to ${maxValue})` };
-    }
-    return { valid: true };
   }
 
   // Boolean validation
@@ -442,6 +431,126 @@ export function parseInputValue(value: any, solidityType: string, param?: AbiPar
   return value;
 }
 
+/**
+ * Safely converts a value to BigNumber, handling whitespace and validation
+ */
+function toBigNumberSafe(value: unknown): ethers.BigNumber {
+    if (ethers.BigNumber.isBigNumber(value)) {
+      return value;
+    }
+  
+    let stringValue: string;
+  
+    if (typeof value === 'string') {
+      stringValue = value.trim();
+    } else if (typeof value === 'number') {
+      stringValue = value.toString();
+    } else {
+      stringValue = String(value).trim();
+    }
+  
+    if (!/^-?\d+$/.test(stringValue)) {
+      throw new Error(
+        `Invalid integer value for BigNumber: "${stringValue}". Expected a valid integer string.`
+      );
+    }
+  
+    return ethers.BigNumber.from(stringValue);
+}
+
+export function processFunctionArguments(rawArgs: any[], functionAbi: AbiFunction) {
+    const paramTypes = functionAbi.inputs;
+    return rawArgs.map((arg, index) => {
+      const paramType = paramTypes[index]?.type;
+      if (!paramType) return arg;
+  
+      if (paramType.startsWith('uint') || paramType.startsWith('int')) {
+        return toBigNumberSafe(arg);
+      }
+      if (paramType === 'bool') {
+        const trimmedArg = typeof arg === 'string' ? arg.trim().toLowerCase() : arg;
+        return trimmedArg === 'true' || trimmedArg === true;
+      }
+      if (paramType.includes('[]')) {
+        let arrayValue: any[];
+        
+        if (typeof arg === 'string') {
+          try {
+            arrayValue = JSON.parse(arg);
+          } catch {
+            arrayValue = arg.split(',').map((item: string) => item.trim());
+          }
+        } else {
+          arrayValue = Array.isArray(arg) ? arg : [arg];
+        }
+
+        if (paramType.match(/u?int\d*\[\]/)) {
+          return arrayValue.map((item) => toBigNumberSafe(item));
+        }
+
+        return arrayValue;
+      }
+      
+      if (typeof arg === 'string') {
+        return arg.trim();
+      }
+      
+      return arg;
+    });
+}
+
+
+export function processConstructorArguments(
+    template: ContractTemplate,
+    constructorArgs: any[]
+  ) {
+    const templateParams = Array.isArray(template.parameters) ? template.parameters : [];
+    const argsToSave: Record<string, any> = {};
+
+    const processedArgs = constructorArgs.map((arg, index) => {
+      const param = templateParams[index];
+      if (!param) return arg;
+
+      argsToSave[param.name] = arg;
+      
+      const paramType = param.type;
+  
+      if (paramType?.startsWith('uint') || paramType?.startsWith('int')) {
+        return toBigNumberSafe(arg);
+      }
+      if (paramType === 'bool') {
+        const trimmedArg = typeof arg === 'string' ? arg.trim().toLowerCase() : arg;
+        return trimmedArg === 'true' || trimmedArg === true;
+      }
+      if (paramType?.includes('[]')) {
+        let arrayValue: any[];
+        
+        if (typeof arg === 'string') {
+          try {
+            arrayValue = JSON.parse(arg);
+          } catch {
+            arrayValue = arg.split(',').map((item: string) => item.trim());
+          }
+        } else {
+          arrayValue = Array.isArray(arg) ? arg : [arg];
+        }
+
+        if (paramType.match(/u?int\d*\[\]/)) {
+          return arrayValue.map((item) => toBigNumberSafe(item));
+        }
+
+        return arrayValue;
+      }
+      
+      if (typeof arg === 'string') {
+        return arg.trim();
+      }
+      
+      return arg;
+    });
+
+    return { args: processedArgs, argsToSave };
+}
 /**
  * Generate human-readable function signature
  * e.g., "transfer(address to, uint256 amount)"

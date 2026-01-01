@@ -11,37 +11,9 @@ import {
 import { ContractTemplate } from '@/types/template';
 import { NetworkType } from '@/types/deployment';
 import { createDeployment } from '@/lib/supabase/deployments';
-import { getWeb3ErrorMessage } from '@/lib/errors';
 import { getTemplateById } from '../supabase/templates';
-
-/**
- * Safely converts a value to BigNumber, handling whitespace and validation
- */
-function toBigNumberSafe(value: unknown): ethers.BigNumber {
-  if (ethers.BigNumber.isBigNumber(value)) {
-    return value;
-  }
-
-  let stringValue: string;
-
-  if (typeof value === 'string') {
-    stringValue = value.trim();
-  } else if (typeof value === 'number') {
-    stringValue = value.toString();
-  } else {
-    stringValue = String(value).trim();
-  }
-
-  // Validate the string is a valid integer (positive, negative, or zero)
-  if (!/^-?\d+$/.test(stringValue)) {
-    throw new Error(
-      `Invalid integer value for BigNumber: "${stringValue}". Expected a valid integer string.`
-    );
-  }
-
-  return ethers.BigNumber.from(stringValue);
-}
-
+import { processConstructorArguments, processFunctionArguments } from '../abi/parser';
+import { callReadFunction, callWriteFunction, deployContract } from '../web3/transactions';
 
 export class RecipeExecutor {
   private provider: ethers.providers.Provider;
@@ -102,53 +74,6 @@ export class RecipeExecutor {
     }
   
   /**
-   * Process constructor arguments with variable resolution
-   */
-  private processArgs(args: any[], stepResults: StepResult[], abiParams: any[]): any[] {
-    return args.map((arg, index) => {
-      const param = abiParams[index];
-      if (!param) return arg;
-  
-      const resolvedValue = this.resolveValue(arg, stepResults);
-      const paramType = param.type;
-  
-      // Type conversion
-      if (paramType?.startsWith('uint') || paramType?.startsWith('int')) {
-        return toBigNumberSafe(resolvedValue);
-      }
-      if (paramType === 'bool') {
-        const trimmedValue = typeof resolvedValue === 'string' ? resolvedValue.trim().toLowerCase() : resolvedValue;
-        return trimmedValue === 'true' || trimmedValue === true;
-      }
-      if (paramType?.includes('[]')) {
-        let arrayValue: any[];
-        
-        if (typeof resolvedValue === 'string') {
-          try {
-            arrayValue = JSON.parse(resolvedValue);
-          } catch {
-            arrayValue = resolvedValue.split(',').map((item: string) => item.trim());
-          }
-        } else {
-          arrayValue = Array.isArray(resolvedValue) ? resolvedValue : [resolvedValue];
-        }
-
-        if (paramType.match(/u?int\d*\[\]/)) {
-          return arrayValue.map((item) => toBigNumberSafe(item));
-        }
-
-        return arrayValue;
-      }
-      
-      if (typeof resolvedValue === 'string') {
-        return resolvedValue.trim();
-      }
-      
-      return resolvedValue;
-    });
-  }
-
-  /**
    * Execute a single deploy step
    */
   private async executeDeployStep(
@@ -157,82 +82,38 @@ export class RecipeExecutor {
     template: ContractTemplate,
   ): Promise<{ contractAddress: string; transactionHash: string }> {
 
-    const bytecodeWithPrefix = template.bytecode.startsWith('0x')
-      ? template.bytecode
-      : `0x${template.bytecode}`;
-
-    const factory = new ethers.ContractFactory(
-      template.abi,
-      bytecodeWithPrefix,
-      this.signer
+    const processedArgs = processConstructorArguments(
+      template,
+      step.constructorArgs.map(arg => this.resolveValue(arg.value, stepResults))
     );
-
-    const templateParams = Array.isArray(template.parameters) ? template.parameters : [];
-    const processedArgs = this.processArgs(
-      step.constructorArgs.map(arg => arg.value),
-      stepResults,
-      templateParams
-    );
-
-    const overrides = { gasLimit: 3000000 };
 
     console.log(`🚀 [Recipe Engine] Deploying: ${step.contractName}...`);
-    const contract = await factory.deploy(...processedArgs, overrides);
-
-    const deploymentTx = contract.deployTransaction || (contract as any).deploymentTransaction;
-    if (!deploymentTx || !deploymentTx.hash) {
-      throw new Error('Failed to get transaction hash from deployment');
-    }
-
-    const transactionHash = deploymentTx.hash;
-    console.log(`✅ [Recipe Engine] Transaction submitted: ${transactionHash}`);
-
-    const confirmationConfig = {
-      localnet: { confirmations: 1, timeout: 30000 },
-      testnet: { confirmations: 1, timeout: 180000 },
-      mainnet: { confirmations: 2, timeout: 300000 },
-    };
-    const config = confirmationConfig[this.network] || confirmationConfig.testnet;
-
-    const receipt = await this.provider.waitForTransaction(
-      transactionHash,
-      config.confirmations,
-      config.timeout
+    
+    const deployResult = await deployContract(
+      this.signer,
+      template.abi,
+      template.bytecode,
+      processedArgs.args,
+      this.network,
     );
 
-    if (receipt.status === 0) {
-      throw new Error('Transaction reverted on-chain');
-    }
-
-    const deployedCode = await this.provider.getCode(contract.address);
-    if (deployedCode === '0x' || deployedCode === '0x0') {
-      throw new Error('No bytecode at contract address');
-    }
-
-    console.log(`✅ [Recipe Engine] Contract deployed at: ${contract.address}`);
-
-    const constructorArgsToSave = Object.fromEntries(
-      templateParams.map((param, i) => [
-        param.name, 
-        step.constructorArgs[i]?.value || ''
-      ])
-    );
+    console.log(`✅ [Recipe Engine] Contract deployed at: ${deployResult.contractAddress}`);
 
     await createDeployment({
       template_id: template.id,
       contract_name: step.contractName,
-      contract_address: contract.address,
+      contract_address: deployResult.contractAddress,
       deployer_address: this.address,
       network: this.network,
       chain_id: this.chainId,
-      transaction_hash: transactionHash,
-      constructor_args: constructorArgsToSave,
+      transaction_hash: deployResult.transactionHash,
+      constructor_args: processedArgs.argsToSave,
       deployment_status: 'success',
     });
 
     return {
-      contractAddress: contract.address,
-      transactionHash: transactionHash,
+      contractAddress: deployResult.contractAddress,
+      transactionHash: deployResult.transactionHash,
     };
   };
 
@@ -245,17 +126,11 @@ export class RecipeExecutor {
   ): Promise<{ result?: any; transactionHash?: string }> {
     const contractAddress = this.resolveValue(step.contractSource, stepResults);
 
-    // To get the ABI, we need to find the original deployment step
     let abi: any[] | undefined;
     if (typeof step.contractSource === 'object' && step.contractSource.source === 'step') {
-        const deployStep = stepResults[step.contractSource.stepIndex];
-        // This is a weak link. We need to fetch the template ABI.
-        // Let's assume for now the recipe contains enough info, or we fetch it.
-        // The proper way is to look up the template from the original deployment step.
-        // This requires modifying how we track steps. Let's make an assumption and fetch.
-        const sourceRecipeStep = stepResults[step.contractSource.stepIndex].sourceRecipeStep as DeployStep | undefined;
-        if(sourceRecipeStep && sourceRecipeStep.type === 'deploy') {
-            const template = await getTemplateById(sourceRecipeStep.templateId);
+        const deployStep = (stepResults[step.contractSource.stepIndex] as any).sourceRecipeStep as DeployStep;
+        if(deployStep && deployStep.type === 'deploy') {
+            const template = await getTemplateById(deployStep.templateId);
             abi = template?.abi;
         }
     }
@@ -264,7 +139,7 @@ export class RecipeExecutor {
         throw new Error(`Could not determine ABI for interaction step targeting ${contractAddress}`);
     }
 
-    const contract = new ethers.Contract(contractAddress, abi, this.signer);
+    const contract = new ethers.Contract(contractAddress, abi, this.provider);
     const functionAbi = abi.find(
       (item: any) => item.type === 'function' && item.name === step.functionName
     );
@@ -273,21 +148,18 @@ export class RecipeExecutor {
       throw new Error(`Function "${step.functionName}" not found in ABI`);
     }
 
-    const processedArgs = this.processArgs(
-        step.functionArgs.map(arg => arg.value),
-        stepResults,
-        functionAbi.inputs
+    const processedArgs = processFunctionArguments(
+        step.functionArgs.map(arg => this.resolveValue(arg.value, stepResults)),
+        functionAbi
     );
 
     console.log(`🔧 [Recipe Engine] Calling ${step.functionName} on ${contractAddress}...`);
 
     if (step.isWrite) {
-      const tx = await contract[step.functionName](...processedArgs);
-      const receipt = await tx.wait();
-      if (receipt.status === 0) throw new Error('Transaction reverted');
-      return { transactionHash: tx.hash, result: receipt };
+      const result = await callWriteFunction(contract, this.signer, step.functionName, processedArgs);
+      return { transactionHash: result.transactionHash, result: result.receipt };
     } else {
-      const result = await contract[step.functionName](...processedArgs);
+      const result = await callReadFunction(contract, step.functionName, processedArgs);
       return { result };
     }
   }
@@ -307,6 +179,7 @@ export class RecipeExecutor {
         stepIndex: i,
         status: 'running',
         startedAt: new Date().toISOString(),
+        sourceRecipeStep: step,
       };
 
       try {
@@ -333,7 +206,7 @@ export class RecipeExecutor {
 
       } catch (error: any) {
         stepResult.status = 'error';
-        stepResult.error = getWeb3ErrorMessage(error);
+        stepResult.error = error.message || 'An unknown error occurred';
         stepResult.completedAt = new Date().toISOString();
         stepResults.push(stepResult);
         onStepComplete(i, stepResult);
