@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'; 
 import { Recipe, RecipeExecution, CreateRecipePayload } from '@/types/recipe';
+import { CreateTemplatePayload, ContractTemplate } from '@/types/template';
 
 /**
  * Create a new recipe
@@ -197,4 +198,64 @@ export async function getRecipeExecutions(recipeId: string): Promise<RecipeExecu
     console.error('Error fetching recipe executions:', error);
     return [];
   }
+}
+
+
+// User Template Functions
+
+/**
+ * Create a new user-defined template
+ */
+export async function createUserTemplate(payload: CreateTemplatePayload): Promise<ContractTemplate | null> {
+    const { data, error } = await supabase
+        .from('user_contract_templates')
+        .insert({
+            ...payload,
+            creator_address: payload.creator_address.toLowerCase(),
+        })
+        .select()
+        .single();
+    
+    if (error) {
+        console.error('Error creating user template:', error);
+        throw new Error(error.message);
+    }
+    
+    return data as ContractTemplate;
+}
+
+/**
+ * Get all templates for a specific user
+ */
+export async function getUserTemplates(creatorAddress: string): Promise<ContractTemplate[]> {
+    const { data, error } = await supabase
+        .from('user_contract_templates')
+        .select('*')
+        .eq('creator_address', creatorAddress.toLowerCase())
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching user templates:', error);
+        throw new Error(error.message);
+    }
+
+    return (data as ContractTemplate[]) || [];
+}
+
+/**
+ * Delete a user-defined template
+ */
+export async function deleteUserTemplate(templateId: string, creatorAddress: string): Promise<boolean> {
+    const { error } = await supabase
+        .from('user_contract_templates')
+        .delete()
+        .eq('id', templateId)
+        .eq('creator_address', creatorAddress.toLowerCase());
+
+    if (error) {
+        console.error('Error deleting user template:', error);
+        throw new Error(error.message);
+    }
+
+    return true;
 }

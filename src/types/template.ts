@@ -12,6 +12,7 @@ export interface ContractTemplate {
   parameters: ConstructorParameter[];
   status: 'active' | 'deprecated';
   created_at: string;
+  creator_address?: string; // Added to identify user-owned templates
 }
 
 /**
@@ -28,3 +29,17 @@ export interface ConstructorParameter {
  * Template category for filtering
  */
 export type TemplateCategory = 'DeFi' | 'NFT' | 'DAO' | 'Utility' | 'Other';
+
+
+/**
+ * Payload for creating a new user-defined template
+ */
+export interface CreateTemplatePayload {
+    creator_address: string;
+    name: string;
+    description: string;
+    icon: string;
+    abi: any[];
+    bytecode: string;
+    parameters: ConstructorParameter[];
+}

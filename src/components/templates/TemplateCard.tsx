@@ -5,7 +5,7 @@ import * as LucideIcons from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Lock } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import type { ContractTemplate } from '@/types/template';
 import { useBatch } from '@/contexts/BatchContext';
@@ -23,8 +23,9 @@ export function TemplateCard({ template, onSelect, className }: TemplateCardProp
     LucideIcons[template.icon as keyof typeof LucideIcons] || LucideIcons.FileCode;
 
   const isDisabled = template.status !== 'active';
+  const isUserOwned = !!template.creator_address;
 
-  const { addToBatch } = useBatch(); // ← THIS was missing
+  const { addToBatch } = useBatch(); 
 
   return (
     <Card
@@ -38,9 +39,23 @@ export function TemplateCard({ template, onSelect, className }: TemplateCardProp
           <Icon className="w-6 h-6 text-primary" />
         </div>
         <div className="flex-1">
-          <CardTitle className="font-headline text-xl">
-            {template.name}
-          </CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="font-headline text-xl">
+              {template.name}
+            </CardTitle>
+            {isUserOwned && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger>
+                            <Lock className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>This is your private template</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
+          </div>
           <CardDescription className="line-clamp-3 mt-1">
             {template.description}
           </CardDescription>
@@ -86,3 +101,11 @@ export function TemplateCard({ template, onSelect, className }: TemplateCardProp
     </Card>
   );
 }
+
+// Add Tooltip components to be available
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"

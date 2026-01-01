@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getAllDeployments,
   getDeploymentsCount,
@@ -9,14 +9,35 @@ import {
   getDeploymentByContractAddress,
 } from '@/lib/supabase/deployments';
 import { getActiveTemplates, getTemplateById } from '@/lib/supabase/templates';
-import { getRecipes } from '@/lib/supabase/recipes';
+import { 
+  getRecipes,
+  createUserTemplate,
+  getUserTemplates,
+  deleteUserTemplate,
+} from '@/lib/supabase/recipes';
 import { useWallet } from '@/contexts/WalletContext';
+import { CreateTemplatePayload } from '@/types/template';
 
-// Hook to fetch all active templates
+// Hook to fetch all active public templates AND user-created templates
 export function useTemplates() {
+  const { address, isConnected } = useWallet();
+
   return useQuery({
-    queryKey: ['templates'],
-    queryFn: getActiveTemplates,
+    queryKey: ['templates', address],
+    queryFn: async () => {
+      const publicTemplates = await getActiveTemplates();
+      
+      if (isConnected && address) {
+        const userTemplates = await getUserTemplates(address);
+        // Add a flag to distinguish user templates
+        const markedUserTemplates = userTemplates.map(t => ({ ...t, creator_address: address, status: 'active' as const }));
+        return [...markedUserTemplates, ...publicTemplates];
+      }
+      
+      return publicTemplates;
+    },
+    // The query will refetch if the user connects/disconnects
+    enabled: true, 
   });
 }
 
@@ -67,7 +88,6 @@ export function useMyDeploymentsCount() {
     });
 }
 
-
 // Hook to fetch a single deployment by its contract address
 export function useDeployment(contractAddress: string) {
   return useQuery({
@@ -94,6 +114,36 @@ export function useRecipes(filter: 'my' | 'public' = 'my') {
   });
 }
 
-// NOTE: useStats hook is omitted as StatsPanel.tsx already has complex, aggregated queries.
-// Refactoring it would require creating multiple Supabase RPC functions for optimal performance,
-// which is outside the scope of this data-fetching upgrade. The current implementation is acceptable.
+// Hook to fetch user-created templates
+export function useUserTemplates() {
+  const { address, isConnected } = useWallet();
+  return useQuery({
+    queryKey: ['templates', 'user', address],
+    queryFn: () => getUserTemplates(address!),
+    enabled: isConnected && !!address,
+  });
+}
+
+// Hook to create a new user template
+export function useCreateUserTemplate() {
+    const queryClient = useQueryClient();
+    const { address } = useWallet();
+
+    return useMutation({
+        mutationFn: (payload: CreateTemplatePayload) => createUserTemplate(payload),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['templates', 'user', address] });
+            queryClient.invalidateQueries({ queryKey: ['templates', address] });
+        }
+    });
+}
+
+// Hook to delete a user template
+export function useDeleteUserTemplate() {
+    const queryClient = useQueryClient();
+    const { address } = useWallet();
+
+    return useMutation({
+        mutationFn: (templateId: string) => deleteUserTemplate(templateId, address!),
+    });
+}
