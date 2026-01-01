@@ -1,3 +1,4 @@
+
 import { NetworkConfig, NetworkDetectionResult, NetworkType } from '@/types/network';
 import { Chain } from 'wagmi/chains';
 import { mainnet, sepolia, polygon, arbitrum, polygonAmoy, arbitrumSepolia, optimism, optimismSepolia, base, baseSepolia, avalanche, avalancheFuji, bsc, bscTestnet } from 'wagmi/chains';
@@ -180,6 +181,7 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
       isCorrectNetwork: true,
       error: undefined
     };
+
   } catch (error) {
     return {
       config: null,
