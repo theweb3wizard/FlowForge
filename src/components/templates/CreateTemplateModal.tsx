@@ -63,7 +63,7 @@ export function CreateTemplateModal({ isOpen, onClose, onTemplateCreated }: Crea
 
   const handleSave = (formData: FormData) => {
     if (!address) {
-      toast.error('Wallet not connected');
+      toast.error('Please connect your wallet');
       return;
     }
     
