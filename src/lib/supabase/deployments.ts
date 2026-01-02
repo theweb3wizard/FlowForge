@@ -34,7 +34,7 @@ export async function getAllDeployments(page: number): Promise<DeploymentWithTem
     .from('deployments')
     .select(`
       *,
-      template:all_templates(*)
+      template:all_templates!inner(*)
     `)
     .eq('deployment_status', 'success')
     .order('deployed_at', { ascending: false })
@@ -76,7 +76,7 @@ export async function getDeploymentsByAddress(address: string, page: number): Pr
     .from('deployments')
     .select(`
       *,
-      template:all_templates(*)
+      template:all_templates!inner(*)
     `)
     .ilike('deployer_address', address) // Use ilike for case-insensitive matching
     .order('deployed_at', { ascending: false })
@@ -116,7 +116,7 @@ export async function getDeploymentByContractAddress(contractAddress: string): P
     .from('deployments')
     .select(`
       *,
-      template:all_templates(*)
+      template:all_templates!inner(*)
     `)
     .ilike('contract_address', contractAddress) // Use ilike for case-insensitive matching
     .single();
