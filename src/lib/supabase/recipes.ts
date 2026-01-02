@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'; 
+import { supabase, createAuthenticatedSupabaseClient } from '@/lib/supabase'; 
 import { Recipe, RecipeExecution, CreateRecipePayload } from '@/types/recipe';
 import { CreateTemplatePayload, ContractTemplate } from '@/types/template';
 
@@ -7,7 +7,9 @@ import { CreateTemplatePayload, ContractTemplate } from '@/types/template';
  */
 export async function createRecipe(payload: CreateRecipePayload): Promise<Recipe | null> {
   try {
-    const { data, error } = await supabase
+    const authenticatedClient = await createAuthenticatedSupabaseClient(payload.creator_address);
+    
+    const { data, error } = await authenticatedClient
       .from('recipes')
       .insert({
         name: payload.name,
@@ -41,7 +43,12 @@ export async function getRecipes(
   publicOnly: boolean = false
 ): Promise<Recipe[]> {
   try {
-    let query = supabase.from('recipes').select('*').order('created_at', { ascending: false });
+    // Use authenticated client if we have a creator address
+    const client = creatorAddress 
+      ? await createAuthenticatedSupabaseClient(creatorAddress)
+      : supabase;
+    
+    let query = client.from('recipes').select('*').order('created_at', { ascending: false });
 
     if (publicOnly) {
       query = query.eq('is_public', true);
@@ -102,9 +109,10 @@ export async function incrementRecipeExecutionCount(recipeId: string): Promise<v
 /**
  * Delete a recipe
  */
-export async function deleteRecipe(recipeId: string): Promise<boolean> {
+export async function deleteRecipe(recipeId: string, creatorAddress: string): Promise<boolean> {
   try {
-    const { error } = await supabase.from('recipes').delete().eq('id', recipeId);
+    const authenticatedClient = await createAuthenticatedSupabaseClient(creatorAddress);
+    const { error } = await authenticatedClient.from('recipes').delete().eq('id', recipeId);
 
     if (error) {
       console.error('Error deleting recipe:', error);
@@ -127,7 +135,8 @@ export async function createRecipeExecution(
   totalSteps: number
 ): Promise<RecipeExecution | null> {
   try {
-    const { data, error } = await supabase
+    const authenticatedClient = await createAuthenticatedSupabaseClient(executorAddress);
+    const { data, error } = await authenticatedClient
       .from('recipe_executions')
       .insert({
         recipe_id: recipeId,
@@ -205,9 +214,13 @@ export async function getRecipeExecutions(recipeId: string): Promise<RecipeExecu
 
 /**
  * Create a new user-defined template
+ * NOW PROPERLY AUTHENTICATED with server-signed JWT!
  */
 export async function createUserTemplate(payload: CreateTemplatePayload): Promise<ContractTemplate | null> {
-    const { data, error } = await supabase
+    // Create an authenticated client with server-signed JWT
+    const authenticatedClient = await createAuthenticatedSupabaseClient(payload.creator_address);
+    
+    const { data, error } = await authenticatedClient
         .from('user_contract_templates')
         .insert({
             ...payload,
@@ -228,7 +241,9 @@ export async function createUserTemplate(payload: CreateTemplatePayload): Promis
  * Get all templates for a specific user
  */
 export async function getUserTemplates(creatorAddress: string): Promise<ContractTemplate[]> {
-    const { data, error } = await supabase
+    const authenticatedClient = await createAuthenticatedSupabaseClient(creatorAddress);
+    
+    const { data, error } = await authenticatedClient
         .from('user_contract_templates')
         .select('*')
         .eq('creator_address', creatorAddress.toLowerCase())
@@ -246,7 +261,9 @@ export async function getUserTemplates(creatorAddress: string): Promise<Contract
  * Delete a user-defined template
  */
 export async function deleteUserTemplate(templateId: string, creatorAddress: string): Promise<boolean> {
-    const { error } = await supabase
+    const authenticatedClient = await createAuthenticatedSupabaseClient(creatorAddress);
+    
+    const { error } = await authenticatedClient
         .from('user_contract_templates')
         .delete()
         .eq('id', templateId)

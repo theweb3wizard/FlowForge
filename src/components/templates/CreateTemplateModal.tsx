@@ -62,45 +62,99 @@ export function CreateTemplateModal({ isOpen, onClose, onTemplateCreated }: Crea
   });
 
   const handleSave = (formData: FormData) => {
+    // Step 1: Check wallet connection
     if (!address) {
-      toast.error('Please connect your wallet');
+      toast.error('Authentication required', {
+        description: 'Please connect your wallet to create a template',
+      });
       return;
     }
     
     try {
-        const parsedAbi = JSON.parse(formData.abi);
-        const constructor = parseConstructor(parsedAbi);
-        const parameters = constructor.inputs.map(input => ({
-            name: input.name,
-            type: input.type,
-            description: `Parameter for ${input.name}`,
-            required: true,
-        }));
-
-        const payload: CreateTemplatePayload = {
-            creator_address: address,
-            name: formData.name,
-            description: formData.description || '',
-            icon: formData.icon || 'FileCode',
-            abi: parsedAbi,
-            bytecode: formData.bytecode,
-            parameters: parameters,
-        };
-
-        createTemplate(payload, {
-            onSuccess: () => {
-                toast.success('Template created successfully!');
-                onTemplateCreated();
-                reset();
-            },
-            onError: (error) => {
-                toast.error('Failed to create template', {
-                    description: error.message,
-                });
-            }
+      // Step 2: Parse the ABI
+      let parsedAbi;
+      try {
+        parsedAbi = JSON.parse(formData.abi);
+      } catch (parseError) {
+        toast.error('Invalid ABI format', {
+          description: 'The ABI must be valid JSON. Please check your formatting.',
         });
-    } catch (e) {
-        toast.error('Invalid ABI format');
+        return;
+      }
+
+      // Step 3: Extract constructor parameters using parseConstructor
+      let constructor;
+      try {
+        constructor = parseConstructor(parsedAbi);
+      } catch (constructorError) {
+        toast.error('Failed to parse constructor', {
+          description: 'Could not extract constructor from ABI. Ensure it\'s a valid contract ABI.',
+        });
+        return;
+      }
+
+      // Step 4: Map constructor inputs to the parameters format expected by the database
+      const parameters = constructor.inputs.map(input => ({
+        name: input.name || 'unnamed',
+        type: input.type,
+        description: input.name ? `Parameter for ${input.name}` : 'Constructor parameter',
+        required: true,
+      }));
+
+      // Step 5: Create the complete payload with properly formatted parameters
+      const payload: CreateTemplatePayload = {
+        creator_address: address,
+        name: formData.name.trim(),
+        description: formData.description?.trim() || '',
+        icon: formData.icon?.trim() || 'FileCode',
+        abi: parsedAbi,
+        bytecode: formData.bytecode.trim(),
+        parameters: parameters,
+      };
+
+      // Step 6: Call the creation function with enhanced error handling
+      createTemplate(payload, {
+        onSuccess: () => {
+          toast.success('Template created successfully!', {
+            description: `"${formData.name}" is now available in your templates`,
+          });
+          reset();
+          onTemplateCreated();
+        },
+        onError: (error: Error) => {
+          // Provide specific error messages based on the error type
+          const errorMessage = error.message.toLowerCase();
+          
+          if (errorMessage.includes('row-level security') || errorMessage.includes('rls')) {
+            toast.error('Authentication failed', {
+              description: 'Your wallet authentication failed. Please reconnect your wallet and try again.',
+            });
+          } else if (errorMessage.includes('duplicate') || errorMessage.includes('unique')) {
+            toast.error('Template already exists', {
+              description: 'A template with this name already exists. Please use a different name.',
+            });
+          } else if (errorMessage.includes('invalid') || errorMessage.includes('validation')) {
+            toast.error('Invalid template data', {
+              description: 'One or more fields contain invalid data. Please check your inputs.',
+            });
+          } else if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+            toast.error('Connection error', {
+              description: 'Could not connect to the database. Please check your internet connection.',
+            });
+          } else {
+            // Generic error with the actual message
+            toast.error('Failed to create template', {
+              description: error.message || 'An unexpected error occurred. Please try again.',
+            });
+          }
+        }
+      });
+    } catch (unexpectedError) {
+      // Catch any unexpected errors
+      console.error('Unexpected error in handleSave:', unexpectedError);
+      toast.error('Unexpected error', {
+        description: 'An unexpected error occurred. Please try again or contact support.',
+      });
     }
   };
 

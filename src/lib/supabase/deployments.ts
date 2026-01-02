@@ -1,3 +1,4 @@
+
 import { supabase } from '@/lib/supabase';
 import { Deployment, CreateDeploymentPayload, DeploymentWithTemplate } from '@/types/deployment';
 
@@ -33,7 +34,7 @@ export async function getAllDeployments(page: number): Promise<DeploymentWithTem
     .from('deployments')
     .select(`
       *,
-      template:contract_templates(*)
+      template:all_templates(*)
     `)
     .eq('deployment_status', 'success')
     .order('deployed_at', { ascending: false })
@@ -75,7 +76,7 @@ export async function getDeploymentsByAddress(address: string, page: number): Pr
     .from('deployments')
     .select(`
       *,
-      template:contract_templates(*)
+      template:all_templates(*)
     `)
     .ilike('deployer_address', address) // Use ilike for case-insensitive matching
     .order('deployed_at', { ascending: false })
@@ -115,7 +116,7 @@ export async function getDeploymentByContractAddress(contractAddress: string): P
     .from('deployments')
     .select(`
       *,
-      template:contract_templates(*)
+      template:all_templates(*)
     `)
     .ilike('contract_address', contractAddress) // Use ilike for case-insensitive matching
     .single();
