@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -6,7 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { useWallet } from '@/contexts/WalletContext';
 import { ConnectWalletDialog } from './ConnectWalletDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Wallet, LogOut, Home, LayoutDashboard, Menu } from 'lucide-react';
+import { Wallet, LogOut, Home, LayoutDashboard, Menu, FilePlus } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from './ThemeToggle';
@@ -28,10 +29,16 @@ const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
           Dashboard
         </Link>
         {address && (
-          <Link href="/dashboard/recipes" className={cn(buttonVariants({ variant: 'ghost' }), commonClasses)}>
-            <Layers className="mr-3 h-5 w-5" />
-            Recipes
-          </Link>
+          <>
+            <Link href="/dashboard/recipes" className={cn(buttonVariants({ variant: 'ghost' }), commonClasses)}>
+              <Layers className="mr-3 h-5 w-5" />
+              Recipes
+            </Link>
+            <Link href="/dashboard/templates" className={cn(buttonVariants({ variant: 'ghost' }), commonClasses)}>
+              <FilePlus className="mr-3 h-5 w-5" />
+              Templates
+            </Link>
+          </>
         )}
       </nav>
     );
@@ -46,10 +53,16 @@ const NavLinks = ({ isMobile = false }: { isMobile?: boolean }) => {
         Dashboard
       </Link>
       {address && (
-        <Link href="/dashboard/recipes" className="text-muted-foreground transition-colors hover:text-foreground flex items-center gap-2">
-          <Layers className="h-4 w-4" />
-          Recipes
-        </Link>
+        <>
+          <Link href="/dashboard/recipes" className="text-muted-foreground transition-colors hover:text-foreground flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            Recipes
+          </Link>
+          <Link href="/dashboard/templates" className="text-muted-foreground transition-colors hover:text-foreground flex items-center gap-2">
+            <FilePlus className="h-4 w-4" />
+            Templates
+          </Link>
+        </>
       )}
     </nav>
   );
