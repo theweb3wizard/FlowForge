@@ -1,4 +1,3 @@
-
 import { supabase } from '@/lib/supabase';
 import { Deployment, CreateDeploymentPayload, DeploymentWithTemplate } from '@/types/deployment';
 
@@ -30,22 +29,50 @@ export async function getAllDeployments(page: number): Promise<DeploymentWithTem
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  const { data, error } = await supabase
+  // Step 1: Get deployments
+  const { data: deployments, error: deploymentsError } = await supabase
     .from('deployments')
-    .select(`
-      *,
-      template:all_templates!inner(*)
-    `)
+    .select('*')
     .eq('deployment_status', 'success')
     .order('deployed_at', { ascending: false })
     .range(from, to);
 
-  if (error) {
-    console.error('Error fetching deployments:', error);
-    throw error;
+  if (deploymentsError) {
+    console.error('Error fetching deployments:', deploymentsError);
+    throw deploymentsError;
   }
 
-  return (data as any) || [];
+  if (!deployments || deployments.length === 0) {
+    return [];
+  }
+
+  // Step 2: Get all unique template IDs
+  const templateIds = [...new Set(deployments.map(d => d.template_id).filter(Boolean))];
+
+  if (templateIds.length === 0) {
+    // Return deployments without templates if no template IDs
+    return deployments.map(d => ({ ...d, template: null }));
+  }
+
+  // Step 3: Fetch templates from the view
+  const { data: templates, error: templatesError } = await supabase
+    .from('all_templates')
+    .select('*')
+    .in('id', templateIds);
+
+  if (templatesError) {
+    console.error('Error fetching templates:', templatesError);
+    // Return deployments without templates if template fetch fails
+    return deployments.map(d => ({ ...d, template: null }));
+  }
+
+  // Step 4: Merge the data
+  const templateMap = new Map((templates || []).map(t => [t.id, t]));
+  
+  return deployments.map(deployment => ({
+    ...deployment,
+    template: templateMap.get(deployment.template_id) || null
+  }));
 }
 
 /**
@@ -72,22 +99,50 @@ export async function getDeploymentsByAddress(address: string, page: number): Pr
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  const { data, error } = await supabase
+  // Step 1: Get deployments
+  const { data: deployments, error: deploymentsError } = await supabase
     .from('deployments')
-    .select(`
-      *,
-      template:all_templates!inner(*)
-    `)
-    .ilike('deployer_address', address) // Use ilike for case-insensitive matching
+    .select('*')
+    .ilike('deployer_address', address)
     .order('deployed_at', { ascending: false })
     .range(from, to);
 
-  if (error) {
-    console.error('Error fetching user deployments:', error);
-    throw error;
+  if (deploymentsError) {
+    console.error('Error fetching user deployments:', deploymentsError);
+    throw deploymentsError;
   }
 
-  return (data as any) || [];
+  if (!deployments || deployments.length === 0) {
+    return [];
+  }
+
+  // Step 2: Get all unique template IDs
+  const templateIds = [...new Set(deployments.map(d => d.template_id).filter(Boolean))];
+
+  if (templateIds.length === 0) {
+    // Return deployments without templates if no template IDs
+    return deployments.map(d => ({ ...d, template: null }));
+  }
+
+  // Step 3: Fetch templates from the view
+  const { data: templates, error: templatesError } = await supabase
+    .from('all_templates')
+    .select('*')
+    .in('id', templateIds);
+
+  if (templatesError) {
+    console.error('Error fetching templates:', templatesError);
+    // Return deployments without templates if template fetch fails
+    return deployments.map(d => ({ ...d, template: null }));
+  }
+
+  // Step 4: Merge the data
+  const templateMap = new Map((templates || []).map(t => [t.id, t]));
+  
+  return deployments.map(deployment => ({
+    ...deployment,
+    template: templateMap.get(deployment.template_id) || null
+  }));
 }
 
 /**
@@ -112,21 +167,40 @@ export async function getMyDeploymentsCount(address: string): Promise<number> {
  */
 export async function getDeploymentByContractAddress(contractAddress: string): Promise<DeploymentWithTemplate | null> {
   
-  const { data, error } = await supabase
+  // Step 1: Get the deployment
+  const { data: deployment, error: deploymentError } = await supabase
     .from('deployments')
-    .select(`
-      *,
-      template:all_templates!inner(*)
-    `)
-    .ilike('contract_address', contractAddress) // Use ilike for case-insensitive matching
+    .select('*')
+    .ilike('contract_address', contractAddress)
     .single();
 
-  if (error) {
-    console.error('Error fetching deployment:', error);
+  if (deploymentError) {
+    console.error('Error fetching deployment:', deploymentError);
     return null;
   }
 
-  return data as any;
+  if (!deployment) {
+    return null;
+  }
+
+  // Step 2: Get the template if template_id exists
+  if (deployment.template_id) {
+    const { data: template, error: templateError } = await supabase
+      .from('all_templates')
+      .select('*')
+      .eq('id', deployment.template_id)
+      .single();
+
+    if (templateError) {
+      console.error('Error fetching template:', templateError);
+      // Return deployment without template if fetch fails
+      return { ...deployment, template: null };
+    }
+
+    return { ...deployment, template };
+  }
+
+  return { ...deployment, template: null };
 }
 
 /**

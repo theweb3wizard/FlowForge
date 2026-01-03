@@ -40,7 +40,7 @@ export default function TemplatesPage() {
       onSuccess: () => {
         toast.success('Template deleted successfully');
         queryClient.invalidateQueries({ queryKey: ['templates', 'user', address] });
-        queryClient.invalidateQueries({ queryKey: ['templates'] }); // Also invalidate the merged templates query
+        queryClient.invalidateQueries({ queryKey: ['templates', address] }); // Also invalidate the merged templates query
       },
       onError: (error) => {
         toast.error('Failed to delete template', {
@@ -114,7 +114,11 @@ export default function TemplatesPage() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(template.id)} disabled={isDeleting}>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(template.id)}
+                            disabled={isDeleting}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
                             {isDeleting ? 'Deleting...' : 'Delete'}
                           </AlertDialogAction>
                         </AlertDialogFooter>

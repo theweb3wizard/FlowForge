@@ -7,9 +7,20 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Play, Layers, Clock, User, TrendingUp } from 'lucide-react';
+import { Play, Layers, Clock, User, TrendingUp, Trash2, Edit } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Skeleton } from '../ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface RecipeLibraryProps {
   onRunRecipe: (recipe: Recipe) => void;
@@ -87,14 +98,47 @@ export function RecipeLibrary({ onRunRecipe, onViewRecipe }: RecipeLibraryProps)
                     {recipe.description}
                   </p>
                 </div>
-                <Button
-                  onClick={() => onRunRecipe(recipe)}
-                  size="sm"
-                  className="ml-4"
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Run
-                </Button>
+                <div className="flex items-center ml-4">
+                  <Button
+                    onClick={() => onRunRecipe(recipe)}
+                    size="sm"
+                    className="ml-4"
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Run
+                  </Button>
+                  {filter === 'my' && (
+                    <>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+                          <Edit className="h-4 w-4" />
+                      </Button>
+                       <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Recipe?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete "{recipe.name}". This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => alert('Delete logic not implemented yet')}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                    </>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-2 mb-4">
