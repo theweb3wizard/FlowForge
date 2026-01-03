@@ -105,28 +105,6 @@ export function getNetworkIcon(chainId: number, name: string): string {
 /**
  * Detect current network with enhanced metadata
  */
-export function getNetworkIcon(chainId: number, name: string): string {
-  // Custom networks
-  if (chainId === 1043) return '💎'; // BlockDAG
-  if (chainId === 31337) return '🏠'; // Local
-  
-  const nameLower = name.toLowerCase();
-  
-  // Popular networks
-  if (nameLower.includes('ethereum') || nameLower.includes('sepolia') || nameLower.includes('goerli')) return '⟠';
-  if (nameLower.includes('polygon')) return '🟣';
-  if (nameLower.includes('arbitrum')) return '🔵';
-  if (nameLower.includes('optimism')) return '🔴';
-  if (nameLower.includes('base')) return '🔷';
-  if (nameLower.includes('avalanche')) return '🔺';
-  if (nameLower.includes('bsc') || nameLower.includes('binance')) return '🟡';
-  
-  return '⛓️'; // Default chain icon
-}
-
-/**
- * Detect current network with enhanced metadata
- */
 export async function detectNetwork(provider: any): Promise<NetworkDetectionResult> {
   try {
     if (!provider) {
