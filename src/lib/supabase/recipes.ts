@@ -258,21 +258,40 @@ export async function getUserTemplates(creatorAddress: string): Promise<Contract
 }
 
 /**
- * Delete a user-defined template
+ * Delete a user-defined template, checking for existing deployments first.
  */
-export async function deleteUserTemplate(templateId: string, creatorAddress: string): Promise<boolean> {
+export async function deleteUserTemplate(templateId: string, creatorAddress: string): Promise<{ success: boolean; error?: string }> {
     const authenticatedClient = await createAuthenticatedSupabaseClient(creatorAddress);
-    
-    const { error } = await authenticatedClient
+
+    // Step 1: Check for existing deployments using this template.
+    const { count, error: countError } = await supabase
+        .from('deployments')
+        .select('id', { count: 'exact', head: true })
+        .eq('template_id', templateId);
+
+    if (countError) {
+        console.error('Error checking for deployments:', countError);
+        return { success: false, error: 'Could not verify template usage. Please try again.' };
+    }
+
+    // Step 2: If deployments exist, prevent deletion.
+    const deploymentCount = count ?? 0;
+    if (deploymentCount > 0) {
+        const errorMsg = `Cannot delete template. It is used by ${deploymentCount} deployment${deploymentCount > 1 ? 's' : ''}.`;
+        return { success: false, error: errorMsg };
+    }
+
+    // Step 3: If no deployments, proceed with deletion.
+    const { error: deleteError } = await authenticatedClient
         .from('user_contract_templates')
         .delete()
         .eq('id', templateId)
         .eq('creator_address', creatorAddress.toLowerCase());
 
-    if (error) {
-        console.error('Error deleting user template:', error);
-        throw new Error(error.message);
+    if (deleteError) {
+        console.error('Error deleting user template:', deleteError);
+        return { success: false, error: deleteError.message };
     }
 
-    return true;
+    return { success: true };
 }

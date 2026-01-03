@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useUserTemplates, useDeleteUserTemplate } from '@/hooks/use-queries';
 import { useWallet } from '@/contexts/WalletContext';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, BookOpen, Trash2, FileCode } from 'lucide-react';
+import { PlusCircle, BookOpen, Trash2, FileCode, Loader2 } from 'lucide-react';
 import { CreateTemplateModal } from '@/components/templates/CreateTemplateModal';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -37,10 +37,14 @@ export default function TemplatesPage() {
   
   const handleDelete = (templateId: string) => {
     deleteTemplate(templateId, {
-      onSuccess: () => {
-        toast.success('Template deleted successfully');
-        queryClient.invalidateQueries({ queryKey: ['templates', 'user', address] });
-        queryClient.invalidateQueries({ queryKey: ['templates', address] }); // Also invalidate the merged templates query
+      onSuccess: (result) => {
+        if (result.success) {
+          toast.success('Template deleted successfully');
+        } else {
+          toast.error('Failed to delete template', {
+            description: result.error,
+          });
+        }
       },
       onError: (error) => {
         toast.error('Failed to delete template', {
@@ -119,6 +123,7 @@ export default function TemplatesPage() {
                             disabled={isDeleting}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
+                            {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                             {isDeleting ? 'Deleting...' : 'Delete'}
                           </AlertDialogAction>
                         </AlertDialogFooter>

@@ -176,5 +176,11 @@ export function useDeleteUserTemplate() {
 
     return useMutation({
         mutationFn: (templateId: string) => deleteUserTemplate(templateId, address!),
+        onSuccess: (result) => {
+          if (result.success) {
+            queryClient.invalidateQueries({ queryKey: ['templates', 'user', address] });
+            queryClient.invalidateQueries({ queryKey: ['templates', address] });
+          }
+        },
     });
 }
