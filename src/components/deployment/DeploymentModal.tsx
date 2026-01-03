@@ -307,8 +307,17 @@ export function DeploymentModal({ template, onClose }: DeploymentModalProps) {
               disabled={isDeploying || !contractName.trim() || !isFormValid}
               className="flex-1"
             >
-              <Rocket className="mr-2 h-4 w-4" />
-              {isDeploying ? 'Deploying...' : 'Deploy Contract'}
+              {isDeploying ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deploying...
+                </>
+              ) : (
+                <>
+                  <Rocket className="mr-2 h-4 w-4" />
+                  Deploy Contract
+                </>
+              )}
             </Button>
             <Button onClick={handleClose} variant="ghost" disabled={isDeploying}>
               Cancel

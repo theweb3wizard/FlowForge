@@ -31,7 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, Trash2, Layers, Save, Send, Link as LinkIcon, Edit } from 'lucide-react';
+import { Plus, Trash2, Layers, Save, Send, Link as LinkIcon, Edit, Loader2 } from 'lucide-react';
 import { createRecipe } from '@/lib/supabase/recipes';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
@@ -171,6 +171,7 @@ export function SimpleRecipeBuilder({
   };
 
   const handleClose = () => {
+    if (isSaving) return;
     setName('');
     setDescription('');
     setSteps([]);
@@ -189,6 +190,7 @@ export function SimpleRecipeBuilder({
               onChange={(e) => updateStep(stepIndex, { contractName: e.target.value })}
               placeholder="e.g., My Token"
               className="mt-1"
+              disabled={isSaving}
             />
           </div>
           {step.constructorArgs.length > 0 && (
@@ -202,11 +204,11 @@ export function SimpleRecipeBuilder({
                         value={typeof arg.value === 'string' ? arg.value : `Var(Step ${arg.value.stepIndex + 1})`}
                         onChange={(e) => updateArgValue(stepIndex, argIndex, e.target.value)}
                         placeholder={`Enter ${arg.name}`}
-                        disabled={typeof arg.value !== 'string'}
+                        disabled={typeof arg.value !== 'string' || isSaving}
                       />
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" disabled={isSaving}>
                             <LinkIcon className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -257,6 +259,7 @@ export function SimpleRecipeBuilder({
                                 updateStep(stepIndex, { contractSource: val, functionName: '', functionArgs: [] });
                             }
                         }}
+                        disabled={isSaving}
                     >
                         <SelectTrigger className="w-full mt-1">
                             <SelectValue placeholder="Select contract source..." />
@@ -284,6 +287,7 @@ export function SimpleRecipeBuilder({
                                     updateStep(stepIndex, { functionName: funcName, functionArgs: newArgs, isWrite });
                                 }
                             }}
+                            disabled={isSaving}
                         >
                             <SelectTrigger className="w-full mt-1">
                                 <SelectValue placeholder="Select a function..." />
@@ -309,11 +313,11 @@ export function SimpleRecipeBuilder({
                                         value={typeof arg.value === 'string' ? arg.value : `Var(Step ${arg.value.stepIndex + 1})`}
                                         onChange={(e) => updateArgValue(stepIndex, argIndex, e.target.value)}
                                         placeholder={`Enter ${arg.name}`}
-                                        disabled={typeof arg.value !== 'string'}
+                                        disabled={typeof arg.value !== 'string' || isSaving}
                                     />
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" disabled={isSaving}>
                                             <LinkIcon className="h-4 w-4" />
                                         </Button>
                                         </DropdownMenuTrigger>
@@ -353,12 +357,12 @@ export function SimpleRecipeBuilder({
             <div className="space-y-4 flex-shrink-0">
               <div>
                 <Label htmlFor="recipe-name">Recipe Name *</Label>
-                <Input id="recipe-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Launch Token Protocol" className="mt-1" />
+                <Input id="recipe-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Launch Token Protocol" className="mt-1" disabled={isSaving} />
               </div>
 
               <div>
                 <Label htmlFor="recipe-description">Description</Label>
-                <Textarea id="recipe-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe what this recipe does..." className="mt-1" rows={3}/>
+                <Textarea id="recipe-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe what this recipe does..." className="mt-1" rows={3} disabled={isSaving}/>
               </div>
             </div>
             
@@ -427,7 +431,7 @@ export function SimpleRecipeBuilder({
                             </p>
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => removeStep(stepIndex)} className="text-destructive hover:text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => removeStep(stepIndex)} className="text-destructive hover:text-destructive h-8 w-8" disabled={isSaving}><Trash2 className="h-4 w-4" /></Button>
                       </div>
                       {renderStepContent(step, stepIndex)}
                     </Card>
@@ -439,10 +443,19 @@ export function SimpleRecipeBuilder({
         </div>
 
         <DialogFooter>
-            <Button onClick={handleClose} variant="ghost">Cancel</Button>
-            <Button onClick={handleSave} disabled={isSaving}>
-                <Save className="h-4 w-4 mr-2" />
-                {isSaving ? 'Saving...' : 'Save Recipe'}
+            <Button onClick={handleClose} variant="ghost" disabled={isSaving}>Cancel</Button>
+            <Button onClick={handleSave} disabled={isSaving || name.trim().length === 0 || steps.length === 0}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Recipe
+                  </>
+                )}
             </Button>
         </DialogFooter>
       </DialogContent>

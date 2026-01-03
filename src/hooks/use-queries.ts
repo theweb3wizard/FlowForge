@@ -11,12 +11,15 @@ import {
 import { getActiveTemplates, getTemplateById } from '@/lib/supabase/templates';
 import { 
   getRecipes,
+  createRecipe,
+  deleteRecipe,
   createUserTemplate,
   getUserTemplates,
   deleteUserTemplate,
 } from '@/lib/supabase/recipes';
 import { useWallet } from '@/contexts/WalletContext';
 import { CreateTemplatePayload } from '@/types/template';
+import { Recipe } from '@/types/recipe';
 
 // Hook to fetch all active public templates AND user-created templates
 export function useTemplates() {
@@ -111,6 +114,34 @@ export function useRecipes(filter: 'my' | 'public' = 'my') {
     queryKey,
     queryFn,
     enabled: filter === 'public' || (filter === 'my' && !!address),
+  });
+}
+
+// Hook to create a new recipe
+export function useCreateRecipe() {
+  const queryClient = useQueryClient();
+  const { address } = useWallet();
+
+  return useMutation({
+    mutationFn: createRecipe,
+    onSuccess: (newRecipe: Recipe | null) => {
+      if (newRecipe) {
+        queryClient.invalidateQueries({ queryKey: ['recipes', 'my', address] });
+      }
+    },
+  });
+}
+
+// Hook to delete a recipe
+export function useDeleteRecipe() {
+  const queryClient = useQueryClient();
+  const { address } = useWallet();
+
+  return useMutation({
+    mutationFn: (recipeId: string) => deleteRecipe(recipeId, address!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recipes', 'my', address] });
+    },
   });
 }
 

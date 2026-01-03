@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Save } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
 import { CreateTemplatePayload } from '@/types/template';
 
 const schema = z.object({
@@ -159,6 +159,7 @@ export function CreateTemplateModal({ isOpen, onClose, onTemplateCreated }: Crea
   };
 
   const handleClose = () => {
+    if (isPending) return;
     reset();
     onClose();
   }
@@ -176,37 +177,46 @@ export function CreateTemplateModal({ isOpen, onClose, onTemplateCreated }: Crea
         <form onSubmit={handleSubmit(handleSave)} className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">Template Name *</Label>
-            <Input id="name" {...register('name')} />
+            <Input id="name" {...register('name')} disabled={isPending} />
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea id="description" {...register('description')} />
+            <Textarea id="description" {...register('description')} disabled={isPending} />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="icon">Icon (Emoji or Lucide Icon Name)</Label>
-            <Input id="icon" {...register('icon')} placeholder="e.g., '🚀' or 'Rocket'"/>
+            <Input id="icon" {...register('icon')} placeholder="e.g., '🚀' or 'Rocket'" disabled={isPending}/>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="abi">ABI (JSON Array) *</Label>
-            <Textarea id="abi" {...register('abi')} rows={6} placeholder='[{"inputs":...}]'/>
+            <Textarea id="abi" {...register('abi')} rows={6} placeholder='[{"inputs":...}]' disabled={isPending}/>
             {errors.abi && <p className="text-sm text-destructive">{errors.abi.message}</p>}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="bytecode">Bytecode (Hex) *</Label>
-            <Textarea id="bytecode" {...register('bytecode')} rows={4} placeholder='0x...'/>
+            <Textarea id="bytecode" {...register('bytecode')} rows={4} placeholder='0x...' disabled={isPending}/>
             {errors.bytecode && <p className="text-sm text-destructive">{errors.bytecode.message}</p>}
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={handleClose}>Cancel</Button>
+            <Button type="button" variant="ghost" onClick={handleClose} disabled={isPending}>Cancel</Button>
             <Button type="submit" disabled={isPending}>
-              <Save className="mr-2 h-4 w-4" />
-              {isPending ? 'Saving...' : 'Save Template'}
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Template
+                </>
+              )}
             </Button>
           </DialogFooter>
         </form>

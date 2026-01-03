@@ -1,15 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { useRecipes } from '@/hooks/use-queries';
+import { useRecipes, useDeleteRecipe } from '@/hooks/use-queries';
 import { Recipe } from '@/types/recipe';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Play, Layers, Clock, User, TrendingUp, Trash2, Edit } from 'lucide-react';
+import { Play, Layers, Clock, User, TrendingUp, Trash2, Edit, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Skeleton } from '../ui/skeleton';
+import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useWallet } from '@/contexts/WalletContext';
 
 interface RecipeLibraryProps {
   onRunRecipe: (recipe: Recipe) => void;
@@ -29,7 +32,25 @@ interface RecipeLibraryProps {
 
 export function RecipeLibrary({ onRunRecipe, onViewRecipe }: RecipeLibraryProps) {
   const [filter, setFilter] = useState<'my' | 'public'>('my');
+  const { address } = useWallet();
+  const queryClient = useQueryClient();
   const { data: recipes = [], isLoading } = useRecipes(filter);
+  const { mutate: deleteRecipe, isPending: isDeleting } = useDeleteRecipe();
+
+  const handleDelete = (recipeId: string) => {
+    deleteRecipe(recipeId, {
+      onSuccess: () => {
+        toast.success('Recipe deleted successfully');
+        queryClient.invalidateQueries({ queryKey: ['recipes', 'my', address] });
+      },
+      onError: (error) => {
+        toast.error('Failed to delete recipe', {
+          description: error.message,
+        });
+      },
+    });
+  };
+
 
   if (isLoading) {
     return (
@@ -128,10 +149,12 @@ export function RecipeLibrary({ onRunRecipe, onViewRecipe }: RecipeLibraryProps)
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() => alert('Delete logic not implemented yet')}
+                                onClick={() => handleDelete(recipe.id)}
                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                disabled={isDeleting}
                               >
-                                Delete
+                                {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {isDeleting ? 'Deleting...' : 'Delete'}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
