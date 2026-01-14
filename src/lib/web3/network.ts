@@ -1,29 +1,14 @@
-import { NetworkConfig, NetworkDetectionResult, NetworkType } from '@/types/network';
+import { NetworkConfig, NetworkDetectionResult } from '@/types/network';
 import { Chain } from 'wagmi/chains';
 import { mainnet, sepolia, polygon, arbitrum, polygonAmoy, arbitrumSepolia, optimism, optimismSepolia, base, baseSepolia, avalanche, avalancheFuji, bsc, bscTestnet } from 'wagmi/chains';
+
+// Define NetworkType locally since it might not be exported from types
+export type NetworkType = 'local' | string;
 
 /**
  * Supported network configurations
  */
 export const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
-  'blockdag-testnet': {
-    chainId: 1043,
-    name: 'BlockDAG Testnet',
-    type: 'blockdag-testnet',
-    rpcUrl: process.env.NEXT_PUBLIC_BLOCKDAG_RPC_URL || '',
-    explorerUrl: process.env.NEXT_PUBLIC_BLOCKDAG_EXPLORER_URL || '',
-    symbol: 'BDAG',
-    isSupported: true,
-  },
-  'blockdag-mainnet': {
-    chainId: 1, // Replace with actual mainnet chain ID when available
-    name: 'BlockDAG Mainnet',
-    type: 'blockdag-mainnet',
-    rpcUrl: '', // Add when mainnet is live
-    explorerUrl: '',
-    symbol: 'BDAG',
-    isSupported: false, // Enable when mainnet launches
-  },
   'local': {
     chainId: 31337,
     name: 'Local Network',
@@ -85,7 +70,6 @@ function getNetworkType(chain: Chain): 'L1' | 'L2' | 'Sidechain' | 'Unknown' {
  */
 export function getNetworkIcon(chainId: number, name: string): string {
   // Custom networks
-  if (chainId === 1043) return '💎'; // BlockDAG
   if (chainId === 31337) return '🏠'; // Local
   
   const nameLower = name.toLowerCase();
@@ -109,7 +93,7 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
   try {
     if (!provider) {
       return {
-        config: null,
+        config: NETWORK_CONFIGS['local'], // Return local config as default
         isCorrectNetwork: false,
         error: 'No wallet provider detected',
       };
@@ -150,7 +134,7 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
       const dynamicConfig: NetworkConfig = {
         chainId: knownChain.id,
         name: knownChain.name,
-        type: knownChain.name.toLowerCase().replace(/\s+/g, '-') as NetworkType,
+        type: knownChain.name.toLowerCase().replace(/\s+/g, '-'),
         rpcUrl: knownChain.rpcUrls.default.http[0] || '',
         explorerUrl: knownChain.blockExplorers?.default.url || '',
         symbol: knownChain.nativeCurrency.symbol,
@@ -168,7 +152,7 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
     const dynamicConfig: NetworkConfig = {
       chainId: network.chainId,
       name: network.name || `Chain ${chainId}`,
-      type: (network.name || `chain-${chainId}`).toLowerCase().replace(/\s+/g, '-') as NetworkType,
+      type: (network.name || `chain-${chainId}`).toLowerCase().replace(/\s+/g, '-'),
       rpcUrl: '',
       explorerUrl: '',
       symbol: '',
@@ -182,7 +166,7 @@ export async function detectNetwork(provider: any): Promise<NetworkDetectionResu
     };
   } catch (error) {
     return {
-      config: null,
+      config: NETWORK_CONFIGS['local'], // Return local config as default
       isCorrectNetwork: false,
       error: error instanceof Error ? error.message : 'Network detection failed',
     };

@@ -1,20 +1,6 @@
-
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  async rewrites() {
-    const blockdagRpcUrl = process.env.NEXT_PUBLIC_BLOCKDAG_RPC_URL;
-    if (!blockdagRpcUrl) {
-      console.warn('NEXT_PUBLIC_BLOCKDAG_RPC_URL is not set, RPC proxy will not be available.');
-      return [];
-    }
-    return [
-      {
-        source: '/api/rpc',
-        destination: blockdagRpcUrl,
-      },
-    ];
-  },
   typescript: {
     ignoreBuildErrors: true,
   },

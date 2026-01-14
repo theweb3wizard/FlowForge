@@ -22,8 +22,8 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: 'FlowForge',
-  description: 'Deploy smart contracts to the BlockDAG testnet without writing code.',
+  title: 'FlowForge - Deploy Smart Contracts on Ethereum',
+  description: 'Deploy secure, pre-audited smart contracts to Ethereum and EVM networks without writing code.',
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',

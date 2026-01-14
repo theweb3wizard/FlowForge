@@ -22,7 +22,8 @@ import {
   ExternalLink, 
   AlertCircle,
   Layers,
-  Send
+  Send,
+  Eye
 } from 'lucide-react';
 import { getExplorerTxUrl } from '@/lib/web3/network';
 import { Confetti } from '../common/Confetti';
@@ -43,6 +44,7 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
   const [stepResults, setStepResults] = useState<(StepResult & { sourceRecipeStep?: RecipeStep })[]>([]);
   const [hasStarted, setHasStarted] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [executionId, setExecutionId] = useState<string | null>(null); // NEW: Track execution ID
 
   useEffect(() => {
     if (recipe && isOpen && !hasStarted) {
@@ -79,7 +81,7 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
 
     // Start execution
     try {
-      await executeRecipe(
+      const execId = await executeRecipe(
         recipe,
         templateMap,
         (stepIndex, result) => {
@@ -91,6 +93,7 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
         }
       );
       
+      setExecutionId(execId); // NEW: Store the execution ID
       setIsComplete(true);
       toast.success('Recipe executed successfully!');
     } catch (error: any) {
@@ -107,7 +110,16 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
       setHasStarted(false);
       setIsComplete(false);
       setStepResults([]);
+      setExecutionId(null); // NEW: Clear execution ID
       onClose();
+    }
+  };
+
+  // NEW: Navigate to execution summary page
+  const handleViewResults = () => {
+    if (executionId) {
+      handleClose();
+      router.push(`/dashboard/recipes/executions/${executionId}`);
     }
   };
 
@@ -311,9 +323,16 @@ export function RecipeExecutorModal({ recipe, isOpen, onClose }: RecipeExecutorM
           {/* Actions */}
           {isComplete && (
             <div className="flex gap-2 pt-4 border-t">
-              <Button onClick={handleViewDashboard} className="flex-1">
+              {/* NEW: Primary action is View Results */}
+              {executionId && (
+                <Button onClick={handleViewResults} className="flex-1">
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Results
+                </Button>
+              )}
+              <Button onClick={handleViewDashboard} variant="outline">
                 <Layers className="mr-2 h-4 w-4" />
-                View Dashboard
+                Dashboard
               </Button>
               <Button onClick={handleClose} variant="outline">
                 Close

@@ -5,10 +5,12 @@ import { useWallet } from '@/contexts/WalletContext';
 import { useTemplates } from '@/hooks/use-queries';
 import { Recipe } from '@/types/recipe';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RecipeLibrary } from '@/components/recipes/RecipeLibrary';
 import { RecipeExecutorModal } from '@/components/recipes/RecipeExecutorModal';
 import { SimpleRecipeBuilder } from '@/components/recipes/SimpleRecipeBuilder';
-import { PlusCircle, BookOpen } from 'lucide-react';
+import { RecipeExecutionHistory } from '@/components/recipes/RecipeExecutionHistory';
+import { PlusCircle, BookOpen, Layers, History } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function RecipesPage() {
@@ -18,14 +20,25 @@ export default function RecipesPage() {
   const [showBuilder, setShowBuilder] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [showExecutor, setShowExecutor] = useState(false);
+  const [recipeToEdit, setRecipeToEdit] = useState<Recipe | null>(null);
 
   const handleRunRecipe = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
     setShowExecutor(true);
   };
 
+  const handleEditRecipe = (recipe: Recipe) => {
+    setRecipeToEdit(recipe);
+    setShowBuilder(true);
+  };
+
   const handleRecipeCreated = () => {
     queryClient.invalidateQueries({ queryKey: ['recipes', 'my', address] });
+  };
+
+  const handleBuilderClose = () => {
+    setShowBuilder(false);
+    setRecipeToEdit(null);
   };
 
   if (!address) {
@@ -57,16 +70,38 @@ export default function RecipesPage() {
         </Button>
       </div>
 
-      <RecipeLibrary
-        onRunRecipe={handleRunRecipe}
-        onViewRecipe={(recipe) => console.log('View:', recipe)}
-      />
+      {/* NEW: Tabs for Recipes and History */}
+      <Tabs defaultValue="recipes" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsTrigger value="recipes" className="flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            My Recipes
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            Execution History
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="recipes">
+          <RecipeLibrary
+            onRunRecipe={handleRunRecipe}
+            onViewRecipe={(recipe) => console.log('View:', recipe)}
+            onEditRecipe={handleEditRecipe}
+          />
+        </TabsContent>
+
+        <TabsContent value="history">
+          <RecipeExecutionHistory />
+        </TabsContent>
+      </Tabs>
 
       <SimpleRecipeBuilder
         isOpen={showBuilder}
-        onClose={() => setShowBuilder(false)}
+        onClose={handleBuilderClose}
         templates={templates}
         onRecipeCreated={handleRecipeCreated}
+        initialRecipe={recipeToEdit}
       />
 
       <RecipeExecutorModal
@@ -77,6 +112,7 @@ export default function RecipesPage() {
           setSelectedRecipe(null);
           queryClient.invalidateQueries({ queryKey: ['recipes'] });
           queryClient.invalidateQueries({ queryKey: ['deployments'] });
+          queryClient.invalidateQueries({ queryKey: ['recipe-executions'] }); // NEW: Invalidate history
         }}
       />
     </div>

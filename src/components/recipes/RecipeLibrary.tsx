@@ -28,9 +28,10 @@ import { useWallet } from '@/contexts/WalletContext';
 interface RecipeLibraryProps {
   onRunRecipe: (recipe: Recipe) => void;
   onViewRecipe: (recipe: Recipe) => void;
+  onEditRecipe: (recipe: Recipe) => void; // NEW: Add edit handler
 }
 
-export function RecipeLibrary({ onRunRecipe, onViewRecipe }: RecipeLibraryProps) {
+export function RecipeLibrary({ onRunRecipe, onViewRecipe, onEditRecipe }: RecipeLibraryProps) {
   const [filter, setFilter] = useState<'my' | 'public'>('my');
   const { address } = useWallet();
   const queryClient = useQueryClient();
@@ -39,9 +40,17 @@ export function RecipeLibrary({ onRunRecipe, onViewRecipe }: RecipeLibraryProps)
 
   const handleDelete = (recipeId: string) => {
     deleteRecipe(recipeId, {
-      onSuccess: () => {
-        toast.success('Recipe deleted successfully');
-        queryClient.invalidateQueries({ queryKey: ['recipes', 'my', address] });
+      onSuccess: (result) => {
+        // NEW: Handle the new response structure
+        if (result.success) {
+          toast.success('Recipe deleted successfully');
+          queryClient.invalidateQueries({ queryKey: ['recipes', 'my', address] });
+        } else {
+          // If deletion was prevented (has execution history)
+          toast.error('Cannot delete recipe', {
+            description: result.error || 'This recipe has execution history and cannot be deleted.',
+          });
+        }
       },
       onError: (error) => {
         toast.error('Failed to delete recipe', {
@@ -130,8 +139,13 @@ export function RecipeLibrary({ onRunRecipe, onViewRecipe }: RecipeLibraryProps)
                   </Button>
                   {filter === 'my' && (
                     <>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
-                          <Edit className="h-4 w-4" />
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => onEditRecipe(recipe)}
+                      >
+                        <Edit className="h-4 w-4" />
                       </Button>
                        <AlertDialog>
                           <AlertDialogTrigger asChild>
@@ -144,6 +158,11 @@ export function RecipeLibrary({ onRunRecipe, onViewRecipe }: RecipeLibraryProps)
                               <AlertDialogTitle>Delete Recipe?</AlertDialogTitle>
                               <AlertDialogDescription>
                                 This will permanently delete "{recipe.name}". This action cannot be undone.
+                                {recipe.execution_count > 0 && (
+                                  <span className="block mt-2 text-amber-600 dark:text-amber-500 font-medium">
+                                    ⚠️ Note: This recipe has been executed {recipe.execution_count} time{recipe.execution_count > 1 ? 's' : ''} and cannot be deleted.
+                                  </span>
+                                )}
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>

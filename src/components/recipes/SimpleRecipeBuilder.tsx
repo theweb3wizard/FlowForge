@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Recipe, RecipeStep, DeployStep, InteractStep, VariableReference } from '@/types/recipe';
 import { ContractTemplate } from '@/types/template';
 import { Button } from '@/components/ui/button';
@@ -31,8 +31,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, Trash2, Layers, Save, Send, Link as LinkIcon, Edit, Loader2 } from 'lucide-react';
-import { createRecipe } from '@/lib/supabase/recipes';
+import { Plus, Trash2, Layers, Save, Send, Link as LinkIcon, Edit, Loader2, AlertCircle } from 'lucide-react';
+import { createRecipe, updateRecipe } from '@/lib/supabase/recipes';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from 'sonner';
 import { separateFunctions } from '@/lib/abi/parser';
@@ -42,6 +42,14 @@ interface SimpleRecipeBuilderProps {
   onClose: () => void;
   templates: ContractTemplate[];
   onRecipeCreated: (recipe: Recipe) => void;
+  initialRecipe?: Recipe | null;
+}
+
+// NEW: Validation error type
+interface ValidationError {
+  stepIndex: number;
+  field: string;
+  message: string;
 }
 
 export function SimpleRecipeBuilder({
@@ -49,6 +57,7 @@ export function SimpleRecipeBuilder({
   onClose,
   templates,
   onRecipeCreated,
+  initialRecipe = null,
 }: SimpleRecipeBuilderProps) {
   const { address } = useWallet();
   const [name, setName] = useState('');
@@ -56,6 +65,102 @@ export function SimpleRecipeBuilder({
   const [steps, setSteps] = useState<RecipeStep[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'deploy' | 'interact'>('deploy');
+
+  const isEditMode = initialRecipe !== null;
+
+  useEffect(() => {
+    if (initialRecipe && isOpen) {
+      setName(initialRecipe.name);
+      setDescription(initialRecipe.description || '');
+      setSteps(initialRecipe.steps);
+    }
+  }, [initialRecipe, isOpen]);
+
+  // NEW: Comprehensive validation function
+  const validateRecipe = useMemo((): ValidationError[] => {
+    const errors: ValidationError[] = [];
+
+    steps.forEach((step, stepIndex) => {
+      if (step.type === 'deploy') {
+        // Validate contract name
+        if (!step.contractName || step.contractName.trim().length === 0) {
+          errors.push({
+            stepIndex,
+            field: 'contractName',
+            message: 'Contract name is required',
+          });
+        }
+
+        // Validate constructor arguments
+        step.constructorArgs.forEach((arg, argIndex) => {
+          if (typeof arg.value === 'string') {
+            if (arg.value.trim().length === 0) {
+              errors.push({
+                stepIndex,
+                field: `arg-${argIndex}`,
+                message: `Parameter "${arg.name}" is required`,
+              });
+            }
+          }
+        });
+      } else if (step.type === 'interact') {
+        // Validate contract source
+        if (!step.contractSource || step.contractSource === '') {
+          errors.push({
+            stepIndex,
+            field: 'contractSource',
+            message: 'Target contract must be selected',
+          });
+        }
+
+        // Validate function name
+        if (!step.functionName || step.functionName.trim().length === 0) {
+          errors.push({
+            stepIndex,
+            field: 'functionName',
+            message: 'Function must be selected',
+          });
+        }
+
+        // Validate function arguments
+        step.functionArgs.forEach((arg, argIndex) => {
+          if (typeof arg.value === 'string') {
+            if (arg.value.trim().length === 0) {
+              errors.push({
+                stepIndex,
+                field: `arg-${argIndex}`,
+                message: `Parameter "${arg.name}" is required`,
+              });
+            }
+          }
+        });
+      }
+    });
+
+    return errors;
+  }, [steps]);
+
+  // NEW: Check if a specific step has errors
+  const stepHasErrors = (stepIndex: number): boolean => {
+    return validateRecipe.some(error => error.stepIndex === stepIndex);
+  };
+
+  // NEW: Get error message for a specific field
+  const getFieldError = (stepIndex: number, field: string): string | null => {
+    const error = validateRecipe.find(
+      e => e.stepIndex === stepIndex && e.field === field
+    );
+    return error ? error.message : null;
+  };
+
+  // NEW: Check if save button should be disabled
+  const canSave = useMemo(() => {
+    return (
+      name.trim().length > 0 &&
+      steps.length > 0 &&
+      validateRecipe.length === 0
+    );
+  }, [name, steps, validateRecipe]);
 
   const getAvailableVariables = (currentStepIndex: number) => {
     const variables: { label: string; value: VariableReference }[] = [];
@@ -91,14 +196,13 @@ export function SimpleRecipeBuilder({
   const addInteractStep = () => {
     const newStep: InteractStep = {
       type: 'interact',
-      contractSource: '', // User will select this
+      contractSource: '',
       functionName: '',
       functionArgs: [],
       isWrite: true,
     };
     setSteps([...steps, newStep]);
   };
-
 
   const removeStep = (index: number) => {
     setSteps(steps.filter((_, i) => i !== index));
@@ -128,43 +232,64 @@ export function SimpleRecipeBuilder({
     setSteps(newSteps);
   };
 
-
   const handleSave = async () => {
     if (!address) {
       toast.error('Please connect your wallet');
       return;
     }
 
-    if (!name.trim()) {
-      toast.error('Please enter a recipe name');
-      return;
-    }
-
-    if (steps.length === 0) {
-      toast.error('Please add at least one step');
+    // NEW: Show validation errors
+    if (validateRecipe.length > 0) {
+      const firstError = validateRecipe[0];
+      toast.error('Recipe has validation errors', {
+        description: `Step ${firstError.stepIndex + 1}: ${firstError.message}`,
+      });
       return;
     }
 
     setIsSaving(true);
     try {
-      const recipe = await createRecipe({
-        name: name.trim(),
-        description: description.trim(),
-        creator_address: address,
-        steps: steps,
-        is_public: false,
-        tags: [],
-      });
-      if (recipe) {
-        toast.success('Recipe created!', { description: `${name} is ready to use` });
-        onRecipeCreated(recipe);
-        handleClose();
+      if (isEditMode && initialRecipe) {
+        const success = await updateRecipe(initialRecipe.id, {
+          name: name.trim(),
+          description: description.trim(),
+          steps: steps,
+        });
+
+        if (success) {
+          toast.success('Recipe updated!', { description: `${name} has been saved` });
+          onRecipeCreated({
+            ...initialRecipe,
+            name: name.trim(),
+            description: description.trim(),
+            steps: steps,
+            updated_at: new Date().toISOString(),
+          });
+          handleClose();
+        } else {
+          toast.error('Failed to update recipe');
+        }
       } else {
-        toast.error('Failed to create recipe');
+        const recipe = await createRecipe({
+          name: name.trim(),
+          description: description.trim(),
+          creator_address: address,
+          steps: steps,
+          is_public: false,
+          tags: [],
+        });
+
+        if (recipe) {
+          toast.success('Recipe created!', { description: `${name} is ready to use` });
+          onRecipeCreated(recipe);
+          handleClose();
+        } else {
+          toast.error('Failed to create recipe');
+        }
       }
     } catch (error) {
-      console.error('Error creating recipe:', error);
-      toast.error('Failed to create recipe');
+      console.error('Error saving recipe:', error);
+      toast.error(`Failed to ${isEditMode ? 'update' : 'create'} recipe`);
     } finally {
       setIsSaving(false);
     }
@@ -181,6 +306,8 @@ export function SimpleRecipeBuilder({
   const renderStepContent = (step: RecipeStep, stepIndex: number) => {
     if (step.type === 'deploy') {
       const template = templates.find((t) => t.id === step.templateId);
+      const contractNameError = getFieldError(stepIndex, 'contractName');
+
       return (
         <div className="space-y-3">
           <div>
@@ -189,23 +316,40 @@ export function SimpleRecipeBuilder({
               value={step.contractName}
               onChange={(e) => updateStep(stepIndex, { contractName: e.target.value })}
               placeholder="e.g., My Token"
-              className="mt-1"
+              className={`mt-1 ${contractNameError ? 'border-red-500' : ''}`}
               disabled={isSaving}
             />
+            {contractNameError && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />
+                {contractNameError}
+              </p>
+            )}
           </div>
           {step.constructorArgs.length > 0 && (
             <div className="space-y-2">
               <Label className="text-xs font-medium">Parameters</Label>
-              {step.constructorArgs.map((arg, argIndex) => (
-                <div key={argIndex}>
-                  <Label className="text-xs text-muted-foreground">{arg.name} ({arg.type}) *</Label>
-                   <div className="flex items-center gap-1 mt-1">
-                      <Input
-                        value={typeof arg.value === 'string' ? arg.value : `Var(Step ${arg.value.stepIndex + 1})`}
-                        onChange={(e) => updateArgValue(stepIndex, argIndex, e.target.value)}
-                        placeholder={`Enter ${arg.name}`}
-                        disabled={typeof arg.value !== 'string' || isSaving}
-                      />
+              {step.constructorArgs.map((arg, argIndex) => {
+                const argError = getFieldError(stepIndex, `arg-${argIndex}`);
+                return (
+                  <div key={argIndex}>
+                    <Label className="text-xs text-muted-foreground">{arg.name} ({arg.type}) *</Label>
+                    <div className="flex items-center gap-1 mt-1">
+                      <div className="flex-1">
+                        <Input
+                          value={typeof arg.value === 'string' ? arg.value : `Var(Step ${arg.value.stepIndex + 1})`}
+                          onChange={(e) => updateArgValue(stepIndex, argIndex, e.target.value)}
+                          placeholder={`Enter ${arg.name}`}
+                          className={argError ? 'border-red-500' : ''}
+                          disabled={typeof arg.value !== 'string' || isSaving}
+                        />
+                        {argError && (
+                          <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            {argError}
+                          </p>
+                        )}
+                      </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" disabled={isSaving}>
@@ -213,16 +357,23 @@ export function SimpleRecipeBuilder({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                          {getAvailableVariables(stepIndex).map((variable, vIndex) => (
-                            <DropdownMenuItem key={vIndex} onSelect={() => updateArgValue(stepIndex, argIndex, variable.value)}>
-                              {variable.label}
-                            </DropdownMenuItem>
-                          ))}
+                          {getAvailableVariables(stepIndex).length > 0 ? (
+                            getAvailableVariables(stepIndex).map((variable, vIndex) => (
+                              <DropdownMenuItem key={vIndex} onSelect={() => updateArgValue(stepIndex, argIndex, variable.value)}>
+                                {variable.label}
+                              </DropdownMenuItem>
+                            ))
+                          ) : (
+                            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                              No variables available
+                            </div>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
-                   </div>
-                </div>
-              ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -231,6 +382,8 @@ export function SimpleRecipeBuilder({
 
     if (step.type === 'interact') {
         const deployedSteps = steps.slice(0, stepIndex).filter(s => s.type === 'deploy') as DeployStep[];
+        const contractSourceError = getFieldError(stepIndex, 'contractSource');
+        const functionNameError = getFieldError(stepIndex, 'functionName');
         
         let selectedTemplate: ContractTemplate | undefined;
         if (typeof step.contractSource === 'object') {
@@ -242,7 +395,6 @@ export function SimpleRecipeBuilder({
         
         const { readFunctions, writeFunctions } = selectedTemplate ? separateFunctions(selectedTemplate.abi) : { readFunctions: [], writeFunctions: [] };
         const allFunctions = [...writeFunctions, ...readFunctions];
-
         const selectedFunction = allFunctions.find(f => f.name === step.functionName);
 
         return (
@@ -250,7 +402,7 @@ export function SimpleRecipeBuilder({
                  <div>
                     <Label className="text-xs">Target Contract *</Label>
                     <Select
-                        value={typeof step.contractSource === 'string' ? step.contractSource : `step:${step.contractSource.stepIndex}`}
+                        value={typeof step.contractSource === 'string' ? step.contractSource : step.contractSource ? `step:${step.contractSource.stepIndex}` : ''}
                         onValueChange={(val) => {
                             if (val.startsWith('step:')) {
                                 const index = parseInt(val.split(':')[1]);
@@ -261,17 +413,33 @@ export function SimpleRecipeBuilder({
                         }}
                         disabled={isSaving}
                     >
-                        <SelectTrigger className="w-full mt-1">
+                        <SelectTrigger className={`w-full mt-1 ${contractSourceError ? 'border-red-500' : ''}`}>
                             <SelectValue placeholder="Select contract source..." />
                         </SelectTrigger>
                         <SelectContent>
-                            {deployedSteps.map((dStep, dIndex) => (
-                                <SelectItem key={dIndex} value={`step:${dIndex}`}>
-                                    Step {dIndex + 1}: {dStep.contractName}
-                                </SelectItem>
-                            ))}
+                            {deployedSteps.length > 0 ? (
+                              deployedSteps.map((dStep, dIndex) => {
+                                // Find the actual index in the full steps array
+                                const actualIndex = steps.findIndex((s, i) => i < stepIndex && s === dStep);
+                                return (
+                                  <SelectItem key={actualIndex} value={`step:${actualIndex}`}>
+                                    Step {actualIndex + 1}: {dStep.contractName}
+                                  </SelectItem>
+                                );
+                              })
+                            ) : (
+                              <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                                No deployed contracts available. Add a deploy step first.
+                              </div>
+                            )}
                         </SelectContent>
                     </Select>
+                    {contractSourceError && (
+                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {contractSourceError}
+                      </p>
+                    )}
                  </div>
 
                  {step.contractSource && selectedTemplate && (
@@ -289,7 +457,7 @@ export function SimpleRecipeBuilder({
                             }}
                             disabled={isSaving}
                         >
-                            <SelectTrigger className="w-full mt-1">
+                            <SelectTrigger className={`w-full mt-1 ${functionNameError ? 'border-red-500' : ''}`}>
                                 <SelectValue placeholder="Select a function..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -299,22 +467,39 @@ export function SimpleRecipeBuilder({
                                 {readFunctions.map(f => <SelectItem key={f.name} value={f.name}>{f.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
+                        {functionNameError && (
+                          <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            {functionNameError}
+                          </p>
+                        )}
                     </div>
                  )}
 
                 {selectedFunction && step.functionArgs.length > 0 && (
                      <div className="space-y-2 pt-2">
                         <Label className="text-xs font-medium">Parameters</Label>
-                        {step.functionArgs.map((arg, argIndex) => (
-                           <div key={argIndex}>
+                        {step.functionArgs.map((arg, argIndex) => {
+                          const argError = getFieldError(stepIndex, `arg-${argIndex}`);
+                          return (
+                            <div key={argIndex}>
                                 <Label className="text-xs text-muted-foreground">{arg.name} ({arg.type}) *</Label>
-                                 <div className="flex items-center gap-1 mt-1">
+                                <div className="flex items-center gap-1 mt-1">
+                                  <div className="flex-1">
                                     <Input
                                         value={typeof arg.value === 'string' ? arg.value : `Var(Step ${arg.value.stepIndex + 1})`}
                                         onChange={(e) => updateArgValue(stepIndex, argIndex, e.target.value)}
                                         placeholder={`Enter ${arg.name}`}
+                                        className={argError ? 'border-red-500' : ''}
                                         disabled={typeof arg.value !== 'string' || isSaving}
                                     />
+                                    {argError && (
+                                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                                        <AlertCircle className="h-3 w-3" />
+                                        {argError}
+                                      </p>
+                                    )}
+                                  </div>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" disabled={isSaving}>
@@ -331,7 +516,8 @@ export function SimpleRecipeBuilder({
                                     </DropdownMenu>
                                 </div>
                             </div>
-                        ))}
+                          );
+                        })}
                     </div>
                 )}
             </div>
@@ -340,14 +526,24 @@ export function SimpleRecipeBuilder({
     return null;
   };
 
-
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Create Deployment Recipe</DialogTitle>
+          <DialogTitle>
+            {isEditMode ? (
+              <>
+                <Edit className="inline h-5 w-5 mr-2" />
+                Edit Recipe
+              </>
+            ) : (
+              'Create Deployment Recipe'
+            )}
+          </DialogTitle>
           <DialogDescription>
-            Build a repeatable multi-step deployment workflow by chaining deployments and interactions.
+            {isEditMode
+              ? 'Modify your recipe steps and configuration.'
+              : 'Build a repeatable multi-step deployment workflow by chaining deployments and interactions.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -357,7 +553,20 @@ export function SimpleRecipeBuilder({
             <div className="space-y-4 flex-shrink-0">
               <div>
                 <Label htmlFor="recipe-name">Recipe Name *</Label>
-                <Input id="recipe-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Launch Token Protocol" className="mt-1" disabled={isSaving} />
+                <Input 
+                  id="recipe-name" 
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)} 
+                  placeholder="e.g., Launch Token Protocol" 
+                  className={`mt-1 ${name.trim().length === 0 && steps.length > 0 ? 'border-red-500' : ''}`}
+                  disabled={isSaving} 
+                />
+                {name.trim().length === 0 && steps.length > 0 && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Recipe name is required
+                  </p>
+                )}
               </div>
 
               <div>
@@ -410,7 +619,15 @@ export function SimpleRecipeBuilder({
 
           {/* Right: Recipe Steps */}
           <div className="flex flex-col gap-4 overflow-hidden">
-            <Label>Recipe Steps ({steps.length})</Label>
+            <div className="flex items-center justify-between">
+              <Label>Recipe Steps ({steps.length})</Label>
+              {/* NEW: Validation summary */}
+              {validateRecipe.length > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  {validateRecipe.length} error{validateRecipe.length !== 1 ? 's' : ''}
+                </Badge>
+              )}
+            </div>
             {steps.length === 0 ? (
               <Card className="p-8 text-center border-dashed flex-1 flex flex-col justify-center">
                 <Layers className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
@@ -420,10 +637,15 @@ export function SimpleRecipeBuilder({
               <ScrollArea className="flex-1 -mr-4">
                 <div className="space-y-3 pr-4">
                   {steps.map((step, stepIndex) => (
-                    <Card key={stepIndex} className="p-4 bg-muted/30">
+                    <Card 
+                      key={stepIndex} 
+                      className={`p-4 ${stepHasErrors(stepIndex) ? 'bg-red-500/5 border-red-500/30' : 'bg-muted/30'}`}
+                    >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm flex-shrink-0">{stepIndex + 1}</div>
+                          <div className={`flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm flex-shrink-0 ${stepHasErrors(stepIndex) ? 'bg-red-500/20 text-red-600' : 'bg-primary/10 text-primary'}`}>
+                            {stepIndex + 1}
+                          </div>
                           <div>
                             <Badge variant={step.type === 'deploy' ? 'secondary' : 'outline'}>{step.type}</Badge>
                             <p className="text-xs text-muted-foreground mt-1">
@@ -444,16 +666,16 @@ export function SimpleRecipeBuilder({
 
         <DialogFooter>
             <Button onClick={handleClose} variant="ghost" disabled={isSaving}>Cancel</Button>
-            <Button onClick={handleSave} disabled={isSaving || name.trim().length === 0 || steps.length === 0}>
+            <Button onClick={handleSave} disabled={!canSave || isSaving}>
                 {isSaving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
+                    {isEditMode ? 'Updating...' : 'Saving...'}
                   </>
                 ) : (
                   <>
                     <Save className="h-4 w-4 mr-2" />
-                    Save Recipe
+                    {isEditMode ? 'Update Recipe' : 'Save Recipe'}
                   </>
                 )}
             </Button>

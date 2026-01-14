@@ -14,6 +14,7 @@ export interface Deployment {
   transaction_hash: string;
   constructor_args: Record<string, any>;
   deployment_status: DeploymentStatus;
+  recipe_execution_id?: string | null; // NEW: Link to recipe execution
   error_message?: string;
   deployed_at: string;
 }
@@ -42,6 +43,7 @@ export interface CreateDeploymentPayload {
   contract_address?: string;
   transaction_hash?: string;
   error_message?: string;
+  recipe_execution_id?: string; // NEW: Optional link to recipe execution
 }
 
 /**

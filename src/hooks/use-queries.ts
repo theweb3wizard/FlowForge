@@ -7,6 +7,7 @@ import {
   getDeploymentsByAddress,
   getMyDeploymentsCount,
   getDeploymentByContractAddress,
+  getDeploymentsByExecutionId,
 } from '@/lib/supabase/deployments';
 import { getActiveTemplates, getTemplateById } from '@/lib/supabase/templates';
 import { 
@@ -16,10 +17,12 @@ import {
   createUserTemplate,
   getUserTemplates,
   deleteUserTemplate,
+  getRecipeExecutions,
 } from '@/lib/supabase/recipes';
 import { useWallet } from '@/contexts/WalletContext';
 import { CreateTemplatePayload } from '@/types/template';
-import { Recipe } from '@/types/recipe';
+import { Recipe, RecipeExecution } from '@/types/recipe';
+import { supabase } from '@/lib/supabase';
 
 // Hook to fetch all active public templates AND user-created templates
 export function useTemplates() {
@@ -132,15 +135,19 @@ export function useCreateRecipe() {
   });
 }
 
-// Hook to delete a recipe
+// Hook to delete a recipe - UPDATED to handle new return type
 export function useDeleteRecipe() {
   const queryClient = useQueryClient();
   const { address } = useWallet();
 
   return useMutation({
     mutationFn: (recipeId: string) => deleteRecipe(recipeId, address!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['recipes', 'my', address] });
+    // NEW: Only invalidate on successful deletion
+    onSuccess: (result) => {
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ['recipes', 'my', address] });
+      }
+      // If result.success is false, the error will be handled in the component's onSuccess callback
     },
   });
 }
@@ -183,4 +190,40 @@ export function useDeleteUserTemplate() {
           }
         },
     });
+}
+
+// Hook to fetch a single recipe execution by ID
+export function useRecipeExecution(executionId: string) {
+  return useQuery({
+    queryKey: ['recipe-execution', executionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('recipe_executions')
+        .select('*')
+        .eq('id', executionId)
+        .single();
+
+      if (error) throw error;
+      return data as RecipeExecution;
+    },
+    enabled: !!executionId,
+  });
+}
+
+// Hook to fetch deployments created by a specific recipe execution
+export function useDeploymentsByExecution(executionId: string) {
+  return useQuery({
+    queryKey: ['deployments', 'execution', executionId],
+    queryFn: () => getDeploymentsByExecutionId(executionId),
+    enabled: !!executionId,
+  });
+}
+
+// Hook to fetch execution history for a specific recipe
+export function useRecipeExecutionHistory(recipeId: string) {
+  return useQuery({
+    queryKey: ['recipe-executions', 'history', recipeId],
+    queryFn: () => getRecipeExecutions(recipeId),
+    enabled: !!recipeId,
+  });
 }

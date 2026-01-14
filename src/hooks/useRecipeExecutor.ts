@@ -16,6 +16,7 @@ import { RecipeExecutor } from '@/lib/recipes/RecipeExecutor';
 interface ExecutionState {
   isExecuting: boolean;
   currentStepIndex: number;
+  executionId?: string; // NEW: Track the execution ID
 }
 
 export function useRecipeExecutor() {
@@ -29,7 +30,7 @@ export function useRecipeExecutor() {
     recipe: Recipe,
     templates: Map<string, ContractTemplate>,
     onStepComplete: (stepIndex: number, result: StepResult) => void
-  ): Promise<void> => {
+  ): Promise<string> => { // CHANGED: Now returns execution ID
     if (!address || !provider) {
       throw new Error('Please connect your wallet first');
     }
@@ -54,7 +55,21 @@ export function useRecipeExecutor() {
       throw new Error('Failed to create execution record in the database');
     }
 
-    const executor = new RecipeExecutor(provider, signer, address, network, chainId);
+    // Update state with execution ID
+    setExecutionState(prev => ({
+      ...prev,
+      executionId: execution.id,
+    }));
+
+    // CRITICAL CHANGE: Pass execution.id to the executor
+    const executor = new RecipeExecutor(
+      provider, 
+      signer, 
+      address, 
+      network, 
+      chainId,
+      execution.id // NEW: Pass execution ID
+    );
 
     try {
       const finalResults = await executor.execute(recipe, templates, (stepIndex, result) => {
@@ -75,6 +90,8 @@ export function useRecipeExecutor() {
         completed_at: new Date().toISOString(),
       });
       await incrementRecipeExecutionCount(recipe.id);
+
+      return execution.id; // NEW: Return the execution ID
       
     } catch (error: any) {
       // An error in one of the steps will be thrown by the executor

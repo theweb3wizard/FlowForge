@@ -86,6 +86,25 @@ export function useContractInteraction(contractAddress: string, abi: any[]) {
   }, []);
 
   /**
+   * Get signer from window.ethereum (MetaMask)
+   * This is the CRITICAL FIX
+   */
+  const getSigner = async (): Promise<ethers.Signer> => {
+    if (!window.ethereum) {
+      throw new Error('No Web3 wallet detected');
+    }
+
+    // Create Web3Provider from MetaMask
+    const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+    
+    // Ensure wallet is connected
+    await web3Provider.send('eth_requestAccounts', []);
+    
+    // Get signer
+    return web3Provider.getSigner();
+  };
+
+  /**
    * Estimate gas for a transaction
    */
   const estimateGas = async (
@@ -96,8 +115,14 @@ export function useContractInteraction(contractAddress: string, abi: any[]) {
     if (!provider || !contract) {
       return null;
     }
-    const signer = await provider.getSigner();
-    return serviceEstimateGas(contract, signer, functionName, args, value);
+    
+    try {
+      const signer = await getSigner(); // ← FIXED: Use getSigner()
+      return serviceEstimateGas(contract, signer, functionName, args, value);
+    } catch (error) {
+      console.error('Error getting signer for gas estimation:', error);
+      return null;
+    }
   };
 
   /**
@@ -143,6 +168,7 @@ export function useContractInteraction(contractAddress: string, abi: any[]) {
 
   /**
    * Call a state-changing function (write)
+   * CRITICAL FIX: Properly get signer from MetaMask
    */
   const callWriteFunction = async (
     functionName: string,
@@ -151,22 +177,40 @@ export function useContractInteraction(contractAddress: string, abi: any[]) {
     functionAbi?: AbiFunction,
     gasLimit?: string
   ): Promise<CallResult> => {
-    if (!provider || !contract) {
-      return { success: false, error: 'Wallet not connected' };
+    if (!contract) {
+      return { success: false, error: 'Contract not initialized' };
+    }
+
+    if (!window.ethereum) {
+      return { success: false, error: 'No Web3 wallet detected. Please install MetaMask.' };
     }
 
     setIsLoading(true);
     setLoadingFunction(functionName);
     
     try {
-      const signer = await provider.getSigner();
-      const result = await serviceCallWrite(contract, signer, functionName, args, value, functionAbi, gasLimit);
+      // CRITICAL FIX: Get signer directly from MetaMask
+      const signer = await getSigner();
+      
+      console.log('🔐 Signer obtained:', await signer.getAddress());
+      
+      const result = await serviceCallWrite(
+        contract, 
+        signer, 
+        functionName, 
+        args, 
+        value, 
+        functionAbi, 
+        gasLimit
+      );
+      
       return {
         success: true,
         transactionHash: result.transactionHash,
         gasUsed: result.gasUsed,
       };
     } catch (error: any) {
+      console.error('❌ Write function failed:', error);
       return { success: false, error: error.message };
     } finally {
       setIsLoading(false);

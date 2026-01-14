@@ -204,6 +204,53 @@ export async function getDeploymentByContractAddress(contractAddress: string): P
 }
 
 /**
+ * NEW: Fetch all deployments created by a specific recipe execution
+ */
+export async function getDeploymentsByExecutionId(executionId: string): Promise<DeploymentWithTemplate[]> {
+  // Step 1: Get deployments linked to this execution
+  const { data: deployments, error: deploymentsError } = await supabase
+    .from('deployments')
+    .select('*')
+    .eq('recipe_execution_id', executionId)
+    .order('deployed_at', { ascending: true });
+
+  if (deploymentsError) {
+    console.error('Error fetching deployments by execution ID:', deploymentsError);
+    throw deploymentsError;
+  }
+
+  if (!deployments || deployments.length === 0) {
+    return [];
+  }
+
+  // Step 2: Get all unique template IDs
+  const templateIds = [...new Set(deployments.map(d => d.template_id).filter(Boolean))];
+
+  if (templateIds.length === 0) {
+    return deployments.map(d => ({ ...d, template: null }));
+  }
+
+  // Step 3: Fetch templates
+  const { data: templates, error: templatesError } = await supabase
+    .from('all_templates')
+    .select('*')
+    .in('id', templateIds);
+
+  if (templatesError) {
+    console.error('Error fetching templates:', templatesError);
+    return deployments.map(d => ({ ...d, template: null }));
+  }
+
+  // Step 4: Merge the data
+  const templateMap = new Map((templates || []).map(t => [t.id, t]));
+  
+  return deployments.map(deployment => ({
+    ...deployment,
+    template: templateMap.get(deployment.template_id) || null
+  }));
+}
+
+/**
  * Update deployment status (for handling failures)
  */
 export async function updateDeploymentStatus(

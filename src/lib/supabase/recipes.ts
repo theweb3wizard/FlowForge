@@ -107,22 +107,74 @@ export async function incrementRecipeExecutionCount(recipeId: string): Promise<v
 }
 
 /**
- * Delete a recipe
+ * Update an existing recipe
  */
-export async function deleteRecipe(recipeId: string, creatorAddress: string): Promise<boolean> {
+export async function updateRecipe(
+  recipeId: string,
+  updates: Partial<Pick<Recipe, 'name' | 'description' | 'steps' | 'is_public' | 'tags'>>
+): Promise<boolean> {
   try {
-    const authenticatedClient = await createAuthenticatedSupabaseClient(creatorAddress);
-    const { error } = await authenticatedClient.from('recipes').delete().eq('id', recipeId);
+    const { error } = await supabase
+      .from('recipes')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', recipeId);
 
     if (error) {
-      console.error('Error deleting recipe:', error);
+      console.error('Error updating recipe:', error);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Error deleting recipe:', error);
+    console.error('Error updating recipe:', error);
     return false;
+  }
+}
+
+/**
+ * Delete a recipe - NOW WITH EXECUTION HISTORY CHECK
+ * Prevents deletion if the recipe has been executed before (data integrity)
+ */
+export async function deleteRecipe(recipeId: string, creatorAddress: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const authenticatedClient = await createAuthenticatedSupabaseClient(creatorAddress);
+
+    // Step 1: Check for existing executions of this recipe
+    const { count, error: countError } = await supabase
+      .from('recipe_executions')
+      .select('id', { count: 'exact', head: true })
+      .eq('recipe_id', recipeId);
+
+    if (countError) {
+      console.error('Error checking for recipe executions:', countError);
+      return { success: false, error: 'Could not verify recipe execution history. Please try again.' };
+    }
+
+    // Step 2: If executions exist, prevent deletion
+    const executionCount = count ?? 0;
+    if (executionCount > 0) {
+      const errorMsg = `Cannot delete recipe. It has been executed ${executionCount} time${executionCount > 1 ? 's' : ''}. Recipes with execution history cannot be deleted to preserve data integrity.`;
+      return { success: false, error: errorMsg };
+    }
+
+    // Step 3: If no executions, proceed with deletion
+    const { error: deleteError } = await authenticatedClient
+      .from('recipes')
+      .delete()
+      .eq('id', recipeId);
+
+    if (deleteError) {
+      console.error('Error deleting recipe:', deleteError);
+      return { success: false, error: deleteError.message };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error deleting recipe:', error);
+    return { success: false, error: error.message || 'An unexpected error occurred.' };
   }
 }
 

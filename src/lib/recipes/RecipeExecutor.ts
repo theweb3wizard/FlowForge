@@ -21,57 +21,66 @@ export class RecipeExecutor {
   private address: string;
   private network: NetworkType;
   private chainId: number;
+  private executionId: string; // NEW: Store execution ID
 
-  constructor(provider: ethers.providers.Provider, signer: ethers.Signer, address: string, network: NetworkType, chainId: number) {
+  constructor(
+    provider: ethers.providers.Provider, 
+    signer: ethers.Signer, 
+    address: string, 
+    network: NetworkType, 
+    chainId: number,
+    executionId: string // NEW: Accept execution ID
+  ) {
     this.provider = provider;
     this.signer = signer;
     this.address = address;
     this.network = network;
     this.chainId = chainId;
+    this.executionId = executionId;
   }
 
   /**
    * Resolve variable references in arguments
    */
-    private resolveValue(value: string | VariableReference, stepResults: StepResult[]): string {
-        if (typeof value !== 'object' || value === null || !('source' in value)) {
-            // It's a static string value
-            return String(value);
-        }
-
-        if (value.source === 'step') {
-            const { stepIndex, property } = value;
-            const referencedStepResult = stepResults[stepIndex];
-
-            if (!referencedStepResult || referencedStepResult.status !== 'success') {
-                throw new Error(`Cannot resolve variable: Step ${stepIndex + 1} did not complete successfully.`);
-            }
-            
-            // Handle different properties
-            switch (property) {
-                case 'contractAddress':
-                    if (referencedStepResult.contractAddress) {
-                        return referencedStepResult.contractAddress;
-                    }
-                    break;
-                case 'transactionHash':
-                    if (referencedStepResult.transactionHash) {
-                        return referencedStepResult.transactionHash;
-                    }
-                    break;
-                case 'result':
-                     if (referencedStepResult.result !== undefined && referencedStepResult.result !== null) {
-                        return String(referencedStepResult.result);
-                    }
-                    break;
-            }
-
-            throw new Error(`Cannot resolve variable: Property "${property}" not found or is empty in the result of Step ${stepIndex + 1}.`);
-        }
-        
-        // Fallback for unexpected types
-        return String(value);
+  private resolveValue(value: string | VariableReference, stepResults: StepResult[]): string {
+    if (typeof value !== 'object' || value === null || !('source' in value)) {
+      // It's a static string value
+      return String(value);
     }
+
+    if (value.source === 'step') {
+      const { stepIndex, property } = value;
+      const referencedStepResult = stepResults[stepIndex];
+
+      if (!referencedStepResult || referencedStepResult.status !== 'success') {
+        throw new Error(`Cannot resolve variable: Step ${stepIndex + 1} did not complete successfully.`);
+      }
+      
+      // Handle different properties
+      switch (property) {
+        case 'contractAddress':
+          if (referencedStepResult.contractAddress) {
+            return referencedStepResult.contractAddress;
+          }
+          break;
+        case 'transactionHash':
+          if (referencedStepResult.transactionHash) {
+            return referencedStepResult.transactionHash;
+          }
+          break;
+        case 'result':
+          if (referencedStepResult.result !== undefined && referencedStepResult.result !== null) {
+            return String(referencedStepResult.result);
+          }
+          break;
+      }
+
+      throw new Error(`Cannot resolve variable: Property "${property}" not found or is empty in the result of Step ${stepIndex + 1}.`);
+    }
+    
+    // Fallback for unexpected types
+    return String(value);
+  }
   
   /**
    * Execute a single deploy step
@@ -99,6 +108,7 @@ export class RecipeExecutor {
 
     console.log(`✅ [Recipe Engine] Contract deployed at: ${deployResult.contractAddress}`);
 
+    // CRITICAL CHANGE: Now includes recipe_execution_id
     await createDeployment({
       template_id: template.id,
       contract_name: step.contractName,
@@ -109,6 +119,7 @@ export class RecipeExecutor {
       transaction_hash: deployResult.transactionHash,
       constructor_args: processedArgs.argsToSave,
       deployment_status: 'success',
+      recipe_execution_id: this.executionId, // NEW: Link deployment to execution
     });
 
     return {
@@ -128,15 +139,15 @@ export class RecipeExecutor {
 
     let abi: any[] | undefined;
     if (typeof step.contractSource === 'object' && step.contractSource.source === 'step') {
-        const deployStep = (stepResults[step.contractSource.stepIndex] as any).sourceRecipeStep as DeployStep;
-        if(deployStep && deployStep.type === 'deploy') {
-            const template = await getTemplateById(deployStep.templateId);
-            abi = template?.abi;
-        }
+      const deployStep = (stepResults[step.contractSource.stepIndex] as any).sourceRecipeStep as DeployStep;
+      if(deployStep && deployStep.type === 'deploy') {
+        const template = await getTemplateById(deployStep.templateId);
+        abi = template?.abi;
+      }
     }
 
     if (!abi) {
-        throw new Error(`Could not determine ABI for interaction step targeting ${contractAddress}`);
+      throw new Error(`Could not determine ABI for interaction step targeting ${contractAddress}`);
     }
 
     const contract = new ethers.Contract(contractAddress, abi, this.provider);
@@ -149,8 +160,8 @@ export class RecipeExecutor {
     }
 
     const processedArgs = processFunctionArguments(
-        step.functionArgs.map(arg => this.resolveValue(arg.value, stepResults)),
-        functionAbi
+      step.functionArgs.map(arg => this.resolveValue(arg.value, stepResults)),
+      functionAbi
     );
 
     console.log(`🔧 [Recipe Engine] Calling ${step.functionName} on ${contractAddress}...`);
@@ -191,10 +202,10 @@ export class RecipeExecutor {
           stepResult.contractAddress = result.contractAddress;
           stepResult.transactionHash = result.transactionHash;
         } else if (step.type === 'interact') {
-           const result = await this.executeInteractStep(step, stepResults);
-           stepResult.status = 'success';
-           stepResult.transactionHash = result.transactionHash;
-           stepResult.result = result.result;
+          const result = await this.executeInteractStep(step, stepResults);
+          stepResult.status = 'success';
+          stepResult.transactionHash = result.transactionHash;
+          stepResult.result = result.result;
         }
 
         stepResult.completedAt = new Date().toISOString();
