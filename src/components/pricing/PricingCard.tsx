@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { CheckoutButton } from '@/components/pricing/CheckoutButton';
 import { cn } from '@/lib/utils';
 
 type Tier = 'free' | 'builder' | 'team';
@@ -25,18 +26,20 @@ type Feature = {
   included: boolean;
 };
 
-const TIER_CONFIG: Record<
-  Tier,
-  {
-    name: string;
-    monthlyPrice: number;
-    annualPrice: number;
-    description: string;
-    features: Feature[];
-    cta: string;
-    ctaHref: string;
-  }
-> = {
+type TierConfig = {
+  name: string;
+  monthlyPrice: number;
+  annualPrice: number;
+  description: string;
+  features: Feature[];
+  cta: string;
+  // For free tier: link href. For paid tiers: null (uses CheckoutButton).
+  ctaHref: string | null;
+  // Paddle price ID env var key for paid tiers.
+  priceIdEnvKey: string | null;
+};
+
+const TIER_CONFIG: Record<Tier, TierConfig> = {
   free: {
     name: 'Free',
     monthlyPrice: 0,
@@ -54,6 +57,7 @@ const TIER_CONFIG: Record<
     ],
     cta: 'Start Free',
     ctaHref: '/sign-in',
+    priceIdEnvKey: null,
   },
   builder: {
     name: 'Builder',
@@ -71,7 +75,8 @@ const TIER_CONFIG: Record<
       { label: 'Priority support', included: false },
     ],
     cta: 'Get Builder',
-    ctaHref: '/sign-in',
+    ctaHref: null,
+    priceIdEnvKey: 'NEXT_PUBLIC_PADDLE_PRICE_ID_BUILDER',
   },
   team: {
     name: 'Team',
@@ -89,7 +94,8 @@ const TIER_CONFIG: Record<
       { label: 'Priority support', included: true },
     ],
     cta: 'Get Team',
-    ctaHref: '/sign-in',
+    ctaHref: null,
+    priceIdEnvKey: 'NEXT_PUBLIC_PADDLE_PRICE_ID_TEAM',
   },
 };
 
@@ -97,6 +103,12 @@ export function PricingCard({ tier, billingCycle, isHighlighted }: PricingCardPr
   const config = TIER_CONFIG[tier];
   const price =
     billingCycle === 'annual' ? config.annualPrice : config.monthlyPrice;
+
+  // Resolve the Paddle price ID from the environment at render time.
+  // NEXT_PUBLIC_ vars are available on the client during SSR.
+  const priceId = config.priceIdEnvKey
+    ? process.env[config.priceIdEnvKey] ?? ''
+    : null;
 
   return (
     <Card
@@ -159,13 +171,25 @@ export function PricingCard({ tier, billingCycle, isHighlighted }: PricingCardPr
       </CardContent>
 
       <CardFooter>
-        <Button
-          className="w-full"
-          variant={isHighlighted ? 'default' : 'outline'}
-          asChild
-        >
-          <Link href={config.ctaHref}>{config.cta}</Link>
-        </Button>
+        {/* Free tier: simple link to sign-in */}
+        {config.ctaHref && (
+          <Button
+            className="w-full"
+            variant={isHighlighted ? 'default' : 'outline'}
+            asChild
+          >
+            <Link href={config.ctaHref}>{config.cta}</Link>
+          </Button>
+        )}
+
+        {/* Paid tiers: Paddle overlay checkout */}
+        {priceId !== null && (
+          <CheckoutButton
+            priceId={priceId}
+            label={config.cta}
+            variant={isHighlighted ? 'default' : 'outline'}
+          />
+        )}
       </CardFooter>
     </Card>
   );
