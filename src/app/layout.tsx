@@ -1,34 +1,28 @@
 import type { Metadata } from 'next';
-import { Inter, Space_Grotesk } from 'next/font/google';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+import { Providers } from '@/components/layout/Providers';
 import { cn } from '@/lib/utils';
-import { Header } from '@/components/common/Header';
-import { Footer } from '@/components/common/Footer';
-import { Web3Provider } from '@/components/common/Web3Provider';
-import { ThemeProvider } from '@/components/common/ThemeProvider';
-import { ErrorBoundary } from '@/components/common/ErrorBoundary';
-import { Toaster } from '@/components/common/Toaster';
-import { BatchProvider } from '@/contexts/BatchContext';
-import { QueryProvider } from '@/components/common/QueryProvider';
 
 const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-sans',
+  display: 'swap',
+  preload: false,
+  fallback: ['system-ui', '-apple-system', 'sans-serif'],
 });
 
-const spaceGrotesk = Space_Grotesk({
+const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
-  variable: '--font-space-grotesk',
+  variable: '--font-mono',
+  display: 'swap',
+  preload: false,
+  fallback: ['Courier New', 'monospace'],
 });
 
 export const metadata: Metadata = {
-  title: 'FlowForge - Deploy Smart Contracts on Ethereum',
-  description: 'Deploy secure, pre-audited smart contracts to Ethereum and EVM networks without writing code.',
-  icons: {
-    icon: '/favicon.svg',
-    shortcut: '/favicon.svg',
-    apple: '/favicon.svg',
-  },
+  title: 'FlowForge',
+  description: 'Build deployment workflows for any EVM chain.',
 };
 
 export default function RootLayout({
@@ -37,37 +31,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark">
       <body
         className={cn(
-          'min-h-screen bg-background font-body text-foreground antialiased',
+          'bg-background font-sans text-foreground antialiased',
           inter.variable,
-          spaceGrotesk.variable
+          jetbrainsMono.variable,
         )}
       >
-        <ErrorBoundary>
-          <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-          >
-            <QueryProvider>
-              <BatchProvider>
-                <Web3Provider>
-                  <div vaul-drawer-wrapper="">
-                    <div className="relative flex min-h-screen flex-col bg-background">
-                      <Header />
-                      <main className="flex-1">{children}</main>
-                      <Footer />
-                    </div>
-                  </div>
-                  <Toaster />
-                </Web3Provider>
-              </BatchProvider>
-            </QueryProvider>
-          </ThemeProvider>
-        </ErrorBoundary>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

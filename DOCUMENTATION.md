@@ -1,363 +1,673 @@
-# FlowForge — Comprehensive Technical Documentation
+# FlowForge — Technical Documentation
 
-**Version:** 5.0
-**Status:** Production Ready
-
----
-
-## Executive Summary
-
-This document provides a complete architectural and technical overview of the FlowForge platform. It is intended for developers, architects, and technical stakeholders.
-
-FlowForge has evolved from a simple MVP into a robust, multi-user, and production-ready platform. This evolution was driven by critical improvements to the **database architecture**, **security model**, and **data-fetching patterns**. The system is now designed to be scalable, maintainable, and secure, providing a solid foundation for future feature development.
-
-### Key Architectural Pillars
-1.  **Unified Data Model**: A `VIEW`-based approach unifies public and private templates, enabling a scalable and flexible template system.
-2.  **Server-Side Authentication**: A backend-for-frontend (BFF) authentication pattern using JWTs secures all database interactions and enables true multi-tenancy.
-3.  **Robust Data Integrity**: A combination of database constraints and application-level checks prevents data corruption and orphaned records.
-4.  **Performant by Design**: Strategic database indexing and efficient query patterns ensure the application remains fast and responsive as data volume grows.
+**Version:** 2.0 (Production Rebuild)
+**Author:** The Web3 Wizard (Khalid)
+**Stack:** Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui · wagmi v2 · viem · Zustand · TanStack Query v5 · Supabase · Lemon Squeezy
 
 ---
 
-## 1. Technical Architecture Deep Dive
+## Table of Contents
 
-### 1.1. System Architecture
+1. [Product Overview](#1-product-overview)
+2. [Architecture](#2-architecture)
+3. [Database Schema & Security](#3-database-schema--security)
+4. [Execution Engine](#4-execution-engine)
+5. [Recipe Builder State Management](#5-recipe-builder-state-management)
+6. [ABI Utilities & Variable Resolution](#6-abi-utilities--variable-resolution)
+7. [Authentication Flow](#7-authentication-flow)
+8. [Chain Configuration](#8-chain-configuration)
+9. [Server Actions & Data Access](#9-server-actions--data-access)
+10. [Pricing & Payments](#10-pricing--payments)
+11. [Environment Variables](#11-environment-variables)
+12. [Local Development Setup](#12-local-development-setup)
+13. [Production Deployment](#13-production-deployment)
+14. [Design Decisions & Tradeoffs](#14-design-decisions--tradeoffs)
 
-FlowForge follows a modern web architecture, separating frontend presentation from backend services and blockchain interactions.
+---
+
+## 1. Product Overview
+
+### What it solves
+
+Deploying an interconnected system of smart contracts — a DeFi protocol, a DAO, a token + vesting system — requires:
+
+- Deploying contracts in a specific order
+- Copying each deployed contract's address
+- Pasting it as a constructor argument for the next contract
+- Calling initialization functions that depend on addresses from prior steps
+
+This process is manual, error-prone, and has to be repeated from scratch every time you deploy to a new network. Hardhat Ignition solves this in code, but requires a local dev environment and TypeScript knowledge. Remix requires manual copy/paste. OpenZeppelin Defender had a GUI but shut down July 1, 2026.
+
+FlowForge solves it visually. You build a **Recipe** — an ordered list of steps — once. You run it on any EVM chain through your wallet. No scripts, no terminal, no private keys stored anywhere.
+
+### What it is (technically)
+
+A Next.js 16 full-stack web application that:
+
+1. Persists recipe configurations (steps, ABIs, bytecodes, parameter bindings) in Supabase
+2. Provides a drag-and-drop visual builder with real-time state via Zustand
+3. Executes recipes through a client-side React hook that calls wagmi's `deployContractAsync` / `writeContractAsync` in sequence
+4. Persists each step result to Supabase immediately upon completion
+5. Surfaces execution state in real-time through React state derived from the hook
+
+### What it is NOT
+
+- A custodial service — it never holds private keys
+- A backend transaction broadcaster — all transactions go through the user's wallet
+- A smart contract auditing tool — it deploys whatever bytecode you provide
+- Dependent on any specific RPC provider — it uses the user's wallet RPC
+
+---
+
+## 2. Architecture
+
+### System overview
 
 ```
-+--------------------------+      +-------------------------+      +----------------------+
-|      User's Browser      |      |     Next.js Server      |      |    External Services   |
-+--------------------------+      +-------------------------+      +----------------------+
-|                          |      |                         |      |                      |
-|  [Next.js React Frontend]<----->|   [API Routes / BFF]    |      | [Supabase PostgreSQL]  |
-|      (shadcn/ui)         |      | (/api/auth/wallet)      |      |   (RLS Enabled)      |
-|                          |      +-------------------------+      +----------------------+
-|  [wagmi / ethers.js]     |                                       |                      |
-|           |              |                                       | [BlockDAG Network]   |
-|           |              |                                       |      (EVM)           |
-|           v              |                                       +----------------------+
-|  [Wallet (MetaMask)]   |
-|                          |
-+--------------------------+
+Browser
+├── Next.js App Router (RSC + Client Components)
+│   ├── Server Components: data fetching via Supabase server client
+│   ├── Client Components: wallet interaction, builder UI, execution UI
+│   └── Server Actions: authenticated write operations
+│
+├── Zustand Store (recipeBuilderStore)
+│   └── Recipe builder UI state: steps, selection, dirty tracking
+│
+├── wagmi v2 (wallet layer)
+│   ├── useDeployContract → deployContractAsync
+│   ├── useWriteContract → writeContractAsync
+│   └── useSwitchChain → switchChainAsync
+│
+└── Supabase JS client (browser)
+    └── All reads/writes from client components
+
+Supabase (PostgreSQL)
+├── recipes table
+├── recipe_steps table
+├── executions table
+└── RLS policies on all tables
+
+EVM Networks (user's wallet RPC)
+└── The user's wallet is the only signer — FlowForge has no server-side signing
 ```
 
-1.  **Frontend**: A Next.js application serves the React frontend. `shadcn/ui` and `Tailwind CSS` are used for the design system. `TanStack Query` manages all server state.
-2.  **Backend (BFF)**: A Next.js API route (`/api/auth/wallet`) acts as a secure backend-for-frontend. Its sole responsibility is to verify a user's wallet address and issue a signed JWT for Supabase authentication.
-3.  **Database**: Supabase provides the PostgreSQL database, authentication services, and real-time capabilities. All tables containing user data are protected by Row Level Security (RLS).
-4.  **Blockchain**: Client-side libraries (`wagmi`, `ethers.js`) interact directly with a user's wallet (e.g., MetaMask) to sign and send transactions to an EVM-compatible network like BlockDAG.
+### Request flow: Loading the builder
 
-### 1.2. Database Architecture
+```
+Browser → GET /recipe/[id]/builder
+  │
+  ├── (app)/layout.tsx [Server Component]
+  │     └── Checks Supabase session → redirect /sign-in if unauthenticated
+  │
+  ├── recipe/[id]/builder/page.tsx [Server Component]
+  │     ├── createServerClient() — Supabase server client with cookie auth
+  │     ├── getRecipeWithSteps(supabase, id) — single round-trip with nested select
+  │     └── Verifies recipe.userId === user.id → notFound() if mismatch
+  │
+  └── BuilderPage.tsx [Client Component]
+        ├── initializeBuilder(recipe) — loads recipe into Zustand store
+        ├── Renders BuilderToolbar + StepList + DeployStepConfig/InteractStepConfig
+        └── setInterval 30s: if isDirty → handleSave()
+```
 
-The database schema is designed for security, data integrity, and performance.
+### Request flow: Running a recipe
 
-#### Tables
--   `contract_templates`
-    -   **Purpose**: Stores the curated list of public, pre-audited smart contract templates available to all users.
-    -   **RLS**: `SELECT` access is public; `INSERT`/`UPDATE`/`DELETE` is restricted to admins.
--   `user_contract_templates`
-    -   **Purpose**: Stores private templates created by individual users. This is a multi-tenant table.
-    -   **RLS**: Enabled. Users can only `SELECT`, `INSERT`, `UPDATE`, or `DELETE` rows where `creator_address` matches their authenticated wallet address.
--   `recipes`
-    -   **Purpose**: Stores user-created multi-step workflows. Can be private or public.
-    -   **RLS**: Enabled. Users can read their own private recipes or any public recipe. Write access is restricted to the creator.
--   `deployments`
-    -   **Purpose**: Records every contract deployment made through the platform.
-    -   **RLS**: `SELECT` is public to populate the "All Deployments" dashboard. `INSERT` is allowed for any authenticated user.
--   `recipe_executions`
-    -   **Purpose**: Logs every run of a recipe, including the status of each step.
-    -   **RLS**: Enabled. Users can only access execution records they initiated.
+```
+User clicks "Run Recipe"
+  │
+  ├── RunModal renders [Client Component]
+  │     └── Stage 1: ChainSelector — user picks a chain
+  │
+  ├── "Confirm & Execute" clicked → Stage 2 mounts
+  │
+  └── ExecutionProgress mounts [Client Component]
+        └── useEffect on mount → executeRecipe()
+              │
+              ├── supabase.auth.getUser() — verify session
+              ├── createExecution(supabase, userId, {recipeId, chainId, chainName})
+              ├── switchChainAsync({chainId}) — switch wallet to target network
+              │
+              └── for each step (sorted by stepOrder):
+                    ├── Resolve params: resolveStepParam(param, completedResults[])
+                    ├── IF deploy:
+                    │     deployContractAsync({abi, bytecode, args, chainId})
+                    │     waitForTransactionReceipt(wagmiConfig, {hash, chainId})
+                    ├── IF interact:
+                    │     resolveTargetAddress(step.targetAddress, completedResults)
+                    │     writeContractAsync({address, abi, functionName, args, chainId})
+                    │     waitForTransactionReceipt(...)
+                    ├── On success:
+                    │     updateExecutionStepResult(supabase, executionId, stepResult, current)
+                    └── On failure:
+                          finalizeExecution(supabase, executionId, 'partial'|'failed')
+                          halt — do not continue to next step
+```
 
-#### The Template System Architecture: A Key Evolution
+---
 
-The most critical architectural decision was how to handle public vs. private templates.
+## 3. Database Schema & Security
 
-1.  **Initial Problem**: A single `contract_templates` table could not securely support user-created templates without complex RLS policies and potential data leaks.
-2.  **Solution**: Two distinct tables were created: `contract_templates` for public assets and `user_contract_templates` for private ones.
-3.  **The `all_templates` VIEW**: To provide a unified interface for the application to query all templates, a database `VIEW` was created.
+### Tables
 
-    ```sql
-    -- This VIEW combines public and user templates into a single, queryable source.
-    CREATE OR REPLACE VIEW public.all_templates AS
-    SELECT
-      id, name, description, icon, abi, bytecode, parameters, created_at,
-      'public' AS source_table,  -- Add a column to identify the source
-      NULL::text AS creator_address -- Public templates have no creator
-    FROM public.contract_templates
-    UNION ALL
-    SELECT
-      id, name, description, icon, abi, bytecode, parameters, created_at,
-      'user' AS source_table,
-      creator_address
-    FROM public.user_contract_templates;
-    ```
-    This design is highly scalable and maintains a clean separation of data at the storage layer.
+```sql
+-- Recipes: user-defined deployment workflows
+CREATE TABLE recipes (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name        text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 100),
+  description text CHECK (char_length(description) <= 500),
+  is_public   boolean NOT NULL DEFAULT false,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
 
-### 1.3. Data Fetching Strategy
+-- Steps: ordered actions within a recipe
+CREATE TABLE recipe_steps (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipe_id         uuid NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  step_order        integer NOT NULL CHECK (step_order >= 0),
+  step_type         text NOT NULL CHECK (step_type IN ('deploy', 'interact')),
+  label             text NOT NULL CHECK (char_length(label) BETWEEN 1 AND 80),
+  contract_name     text,
+  abi               jsonb NOT NULL DEFAULT '[]',
+  bytecode          text,           -- nullable; deploy steps only
+  target_address    text,           -- nullable; interact steps; supports ${step_N.contractAddress}
+  function_name     text,           -- nullable; interact steps only
+  constructor_params jsonb NOT NULL DEFAULT '[]',  -- [{name,type,value,isVariable,variableRef}]
+  UNIQUE (recipe_id, step_order)
+);
 
-The application uses `TanStack Query` to manage all data fetching, which provides robust caching, re-fetching, and state management. Due to the use of the `all_templates` VIEW (which does not have a foreign key), we cannot rely on Supabase's automatic PostgREST joins.
+-- Executions: per-run record with persisted step results
+CREATE TABLE executions (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipe_id    uuid NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  user_id      uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  chain_id     integer NOT NULL,
+  chain_name   text NOT NULL,
+  status       text NOT NULL DEFAULT 'pending'
+                CHECK (status IN ('pending','running','partial','success','failed')),
+  step_results jsonb NOT NULL DEFAULT '[]',
+  started_at   timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+```
 
-Instead, a more explicit and reliable two-step fetch pattern is used for fetching related data:
+### Indexes
+
+```sql
+CREATE INDEX idx_recipes_user_id        ON recipes(user_id);
+CREATE INDEX idx_recipes_is_public      ON recipes(is_public) WHERE is_public = true;
+CREATE INDEX idx_recipe_steps_recipe_id ON recipe_steps(recipe_id);
+CREATE INDEX idx_recipe_steps_order     ON recipe_steps(recipe_id, step_order);
+CREATE INDEX idx_executions_recipe_id   ON executions(recipe_id);
+CREATE INDEX idx_executions_user_id     ON executions(user_id);
+```
+
+### Row Level Security
+
+```sql
+-- recipes
+ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "read own or public" ON recipes FOR SELECT
+  USING (auth.uid() = user_id OR is_public = true);
+
+CREATE POLICY "insert own" ON recipes FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "update own" ON recipes FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "delete own" ON recipes FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- recipe_steps (inherits from parent recipe)
+ALTER TABLE recipe_steps ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "read if recipe accessible" ON recipe_steps FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM recipes
+    WHERE recipes.id = recipe_steps.recipe_id
+    AND (recipes.user_id = auth.uid() OR recipes.is_public = true)
+  ));
+
+-- (INSERT/UPDATE/DELETE policies check recipes.user_id = auth.uid())
+
+-- executions
+ALTER TABLE executions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "own executions only" ON executions FOR ALL
+  USING (auth.uid() = user_id);
+```
+
+### updated_at trigger
+
+```sql
+CREATE OR REPLACE FUNCTION handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER recipes_updated_at
+  BEFORE UPDATE ON recipes
+  FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+```
+
+---
+
+## 4. Execution Engine
+
+The execution engine lives entirely in `src/hooks/useRecipeExecution.ts`. It is the most architecturally sensitive file in the codebase.
+
+### Why a custom hook, not a server-side job queue?
+
+All transactions must be signed by the user's wallet in real time. There is no way to automate this server-side without the user pre-signing transactions (which introduces custodial risk). The execution loop *must* run client-side and pause at each step waiting for the user to approve the transaction in their wallet.
+
+### State shape
 
 ```typescript
-// Example: How deployments with their templates are fetched
-// File: src/lib/supabase/deployments.ts
-
-// 1. Fetch a paginated list of deployments.
-const { data: deployments, error } = await supabase
-  .from('deployments')
-  .select('*')
-  .range(from, to);
-
-// 2. Extract the unique template IDs from the results.
-const templateIds = [...new Set(deployments.map(d => d.template_id))];
-
-// 3. Perform a second, batched query to get all required templates in one go.
-//    This uses the unified 'all_templates' view.
-const { data: templates } = await supabase
-  .from('all_templates')
-  .select('*')
-  .in('id', templateIds);
-
-// 4. Merge the data in the application layer.
-const templateMap = new Map(templates.map(t => [t.id, t]));
-const deploymentsWithTemplates = deployments.map(deployment => ({
-  ...deployment,
-  template: templateMap.get(deployment.template_id) || null
-}));
+{
+  executeRecipe: () => Promise<void>
+  isRunning: boolean
+  currentStepOrder: number | null   // null when not running
+  stepStatuses: Record<number, StepStatus>  // stepOrder → 'pending'|'running'|'success'|'failed'
+  completedResults: StepResult[]            // accumulated per-step results
+  executionStatus: ExecutionStatus          // overall: 'pending'|'running'|'partial'|'success'|'failed'
+  executionId: string | null                // Supabase execution record ID
+  error: string | null                      // top-level error if halted
+}
 ```
-This pattern is performant, avoids N+1 query problems, and is more resilient to schema changes than relying on automatic joins.
 
-### 1.4. Authentication & Authorization
+### Step result persistence
 
-Authentication is handled via a wallet signature, proving ownership of a wallet address.
+Every step result is persisted to Supabase **immediately** upon completion via `updateExecutionStepResult`. This is the resume mechanism — if the user closes the browser mid-execution, all completed step results (contract addresses, tx hashes) are already in the database and visible in the execution history.
 
-1.  **User Connects Wallet**: The user connects their wallet via the frontend (`wagmi`).
-2.  **JWT Request**: When a secure action is needed, the `createAuthenticatedSupabaseClient` function sends the user's wallet address to our backend API at `/api/auth/wallet/route.ts`.
-3.  **Server-Side JWT Signing**: The backend API uses the `SUPABASE_JWT_SECRET` (a private server secret) to sign a JWT. The payload of this token includes the user's wallet address.
-    ```json
-    {
-      "address": "0x...",
-      "role": "authenticated",
-      "exp": 167...
-    }
-    ```
-4.  **Authenticated Requests**: The JWT is sent back to the client, which then uses it in the `Authorization: Bearer <token>` header for all subsequent requests to Supabase.
-5.  **RLS Enforcement**: Supabase validates the JWT signature and makes the payload available to RLS policies via `auth.jwt()`. Our policies use `auth.jwt() ->> 'address'` to match against `creator_address` or `executor_address` columns, thereby enforcing data isolation.
+Critically: **Supabase persistence failure does NOT halt execution.** The DB write is best-effort. The UI state is the source of truth during a live run. This is intentional — a transient network hiccup shouldn't kill a multi-step deployment that's in the middle of expensive on-chain work.
 
-This model is highly secure because **only the server** can create a valid JWT, preventing users from impersonating other addresses.
+### Wallet disconnect detection
+
+```typescript
+// Watches isConnected from wagmi's useAccount
+useEffect(() => {
+  if (!isRunningRef.current) return;
+  if (isConnected) return;
+  if (disconnectHaltedRef.current) return;
+
+  disconnectHaltedRef.current = true;
+  // Halt execution, finalize with 'partial' or 'failed'
+  // ...
+}, [isConnected]);
+```
+
+If the user disconnects their wallet during execution, the hook detects it and finalizes the execution record with the appropriate status.
+
+### Error formatting
+
+All on-chain errors are intercepted and formatted to human-readable strings:
+
+```typescript
+// src/utils/formatExecutionError.ts
+if (message.includes('User rejected')) → "Transaction was rejected in wallet."
+if (message.includes('revert'))        → "Transaction reverted on-chain. Check your contract logic."
+default                                → "Transaction failed. Please check the network and try again."
+```
+
+### ABI argument encoding
+
+```typescript
+// src/utils/encodeStepArgs.ts
+// Handles: address, bool, string, uint*/int*, bytes*
+// Numeric types are cast to BigInt for viem compatibility
+encodeStepArgValue('uint256', '1000000') → BigInt(1000000)
+encodeStepArgValue('address', '0x...')  → '0x...' as `0x${string}`
+```
 
 ---
 
-## 2. Security & Data Integrity
+## 5. Recipe Builder State Management
 
-### 2.1. Row Level Security (RLS) Policies
+The recipe builder uses Zustand (`src/stores/recipeBuilderStore.ts`). React Context was explicitly rejected to avoid re-render cascades across the two-panel layout.
 
-RLS is enabled on all tables containing user-specific data. This is a non-negotiable security requirement.
+### State
 
--   **`user_contract_templates`**:
-    -   **Policy**: `(lower(auth.jwt() ->> 'address') = lower(creator_address))`
-    -   **Purpose**: Ensures users can only read or write their own templates. The `lower()` function prevents case-sensitivity issues with wallet addresses.
+```typescript
+{
+  recipeId: string | null
+  recipeName: string
+  recipeDescription: string
+  isPublic: boolean
+  steps: RecipeStep[]
+  selectedStepId: string | null
+  isDirty: boolean       // true when unsaved changes exist
+  isSaving: boolean
+  lastSavedAt: Date | null
+}
+```
 
--   **`recipes`**:
-    -   **`SELECT` Policy**: `(is_public = true OR lower(auth.jwt() ->> 'address') = lower(creator_address))`
-    -   **`ALL` (Write) Policy**: `(lower(auth.jwt() ->> 'address') = lower(creator_address))`
-    -   **Purpose**: Allows users to view all public recipes but only their own private recipes. Write access is strictly limited to the original creator.
+### Key actions
 
--   **`recipe_executions`**:
-    -   **Policy**: `(lower(auth.jwt() ->> 'address') = lower(executor_address))`
-    -   **Purpose**: Strictly isolates recipe execution history, ensuring a user can only see the results of recipes they personally ran.
+| Action | What it does |
+|--------|-------------|
+| `initializeBuilder(recipe)` | Loads recipe from Supabase into the store on mount |
+| `addStep(stepType)` | Appends a new step with a `temp_` UUID. Auto-selects it. |
+| `removeStep(stepId)` | Removes step, reindexes all remaining `stepOrder` values |
+| `reorderSteps(newOrder)` | Accepts array of step IDs in new order, reassigns stepOrder 0..N |
+| `updateStepField(stepId, field, value)` | Generic update for any step field. Sets `isDirty: true`. |
+| `updateStepParam(stepId, index, updates)` | Updates a single param in `constructorParams[]` |
 
-### 2.2. Data Integrity Measures
+### Broken variable reference detection
 
--   **Orphaned Record Prevention**: Deleting a template is now a "safe" operation. The `deleteUserTemplate` function in `src/lib/supabase/recipes.ts` first queries the `deployments` table to check if the template is in use. If it is, the deletion is aborted, and an informative error is returned to the user. This application-level check was chosen over a database-level constraint for flexibility.
--   **UNIQUE Constraints**: A `UNIQUE` constraint on `(creator_address, name)` was added to the `user_contract_templates` table to prevent a user from creating multiple private templates with the same name.
--   **CHECK Constraints**: Status fields like `deployment_status` and `template.status` use `CHECK` constraints to ensure only valid enum values can be inserted, preventing data corruption.
+After a drag-and-drop reorder, `hasBrokenVariableRef(step, allSteps)` checks whether any `constructorParams` or `targetAddress` references a step that now comes *after* the current step. If so, `StepListItem` renders an amber warning triangle. The system does not auto-fix — it shows the warning and lets the user decide.
+
+### Auto-save
+
+`BuilderPage.tsx` runs a `setInterval` every 30 seconds. If `isDirty` is true, it calls `handleSave()` which:
+
+1. Calls `updateRecipe()` with the current meta fields
+2. Calls `upsertSteps()` with all steps (new steps have no `id` → INSERT; existing steps have a UUID → UPSERT on conflict)
 
 ---
 
-## 3. Performance Optimizations
+## 6. ABI Utilities & Variable Resolution
 
-### 3.1. Database Indexing Strategy
+### ABI Parser (`src/lib/abi/parser.ts`)
 
-To ensure the application remains fast as the dataset grows, several key indexes have been implemented.
+Intentionally scoped. Does NOT attempt to validate every entry — only validates top-level array structure. This is by design: a full ABI validator is a rabbit hole with no bottom (nested structs, tuple types, overloaded functions, etc.).
 
--   **Index: `idx_deployments_lower_deployer_address`**
-    -   **Table**: `deployments`
-    -   **Column**: `LOWER(deployer_address)`
-    -   **Purpose**: Drastically speeds up queries for the "My Contracts" dashboard tab. Without this, the database would have to perform a full table scan, which would be unacceptably slow with thousands of deployments.
-    -   **Query pattern**: `.ilike('deployer_address', userAddress)`
+```typescript
+parseAbi(raw: unknown): ParsedAbi          // Accepts unknown; validates it's a JSON array
+getConstructorInputs(abi): AbiInputParam[] // Returns constructor.inputs or []
+getWriteFunctions(abi): AbiFunction[]      // nonpayable + payable functions only
+getFunctionByName(abi, name): AbiFunction  // Lookup by name
+buildDefaultParams(inputs): StepParamConfig[] // Pre-populates param list from ABI
+isValidAbiJson(input: string): boolean     // Quick check before full parse
+```
 
--   **Index: `idx_recipes_lower_creator_address`**
-    -   **Table**: `recipes`
-    -   **Column**: `LOWER(creator_address)`
-    -   **Purpose**: Optimizes filtering for "My Recipes" in the recipe library.
-    -   **Query pattern**: `.eq('creator_address', userAddress)`
+### Variable Resolution (`src/utils/resolveStepParam.ts`)
 
-These indexes are the single most important performance optimization in the application.
+This is the most critical utility in the codebase. It resolves a parameter's value at execution time:
 
-### 3.2. Query Optimization
+```typescript
+resolveStepParam(param: StepParamConfig, completedResults: StepResult[]): string
 
--   **Server-Side Pagination**: All list views (dashboards, libraries) are architected to use server-side pagination (`.range(from, to)`). This ensures that the client only ever fetches one page of data at a time, keeping the application fast regardless of the total number of rows in the database.
--   **Efficient Counting**: Total counts for pagination are fetched using `select('*', { count: 'exact', head: true })`, which is highly optimized and does not return the actual data.
--   **Batched Queries**: The two-step data fetching pattern uses `.in('id', [id1, id2, ...])` to fetch all necessary related data in a single, efficient query, preventing N+1 problems.
+// If param.isVariable === false: return param.value directly
+// If param.isVariable === true:
+//   Parse param.variableRef → "step_{N}.{field}"
+//   Find completedResults entry where stepOrder === N AND status === 'success'
+//   Return result.contractAddress or result.txHash (null → throw)
+```
+
+For `targetAddress` on interact steps:
+
+```typescript
+resolveTargetAddress(targetAddress: string, completedResults: StepResult[]): string
+// If targetAddress matches ADDRESS_REGEX → return as-is
+// If targetAddress matches ${step_N.contractAddress} → extract ref, call resolveStepParam
+```
+
+The `getAvailableVariables` function populates the variable picker dropdowns in the builder. It only exposes outputs from steps with `stepOrder < currentStepOrder` — you can never reference a future step.
 
 ---
 
-## 4. Development Evolution & Key Decisions
+## 7. Authentication Flow
 
-The application's architecture evolved through several key phases to address scaling and security challenges.
+FlowForge uses Supabase's anonymous auth with wallet address stored in user metadata. This is a simplified launch pattern — full SIWE (Sign-In with Ethereum) is noted in the code as the migration path.
 
-1.  **MVP Phase**: Initial development focused on a single-user model with public templates. This was fast to build but was not secure or scalable.
-2.  **Multi-User Refactor**: The introduction of `user_contract_templates` and RLS was the first major architectural shift. This phase introduced the authentication challenges that were later solved.
-3.  **Database & Security Hardening**: This was the most critical phase.
-    -   **Decision**: To abandon PostgREST's automatic joins in favor of an explicit, application-layer join strategy.
-        -   **Rationale**: The `all_templates` VIEW provided a clean data model but broke the magic joins. Re-implementing this logic explicitly in the application (`two-step fetch`) made data fetching more predictable and robust.
-    -   **Decision**: Implement a server-side BFF for JWT signing.
-        -   **Rationale**: Client-side JWT signing is insecure. Moving this to a serverless function (`/api/auth/wallet`) is the industry-standard way to securely authenticate users with a database like Supabase.
-4.  **UX & Performance Polish**:
-    -   **Decision**: Add loading states to all async buttons.
-        -   **Rationale**: Solved race conditions and provided critical user feedback.
-    -   **Decision**: Add confirmation dialogs for all destructive actions.
-        -   **Rationale**: Prevented irreversible data loss, a critical trust and safety feature.
+```
+User connects wallet (wagmi useConnect)
+         │
+         ▼
+WalletSignIn.tsx
+  ├── supabase.auth.signInAnonymously()
+  └── supabase.auth.updateUser({ data: { wallet_address: address } })
+         │
+         ▼
+Supabase JWT stored in cookie
+         │
+         ▼
+Every page load: proxy.ts (Next.js 16 proxy)
+  └── updateSession(request) — refreshes session from cookie
+         │
+         ▼
+Server Components: createServerClient() via @supabase/ssr
+  └── Reads session from Next.js cookies
+         │
+         ▼
+RLS enforcement: auth.uid() matched against user_id columns
+```
+
+The `proxy.ts` file (Next.js 16's replacement for `middleware.ts`) runs on every request to keep the Supabase session cookie fresh. This prevents the HTTP 431 "Request Header Too Large" error that accumulates stale session cookies.
 
 ---
 
-## 5. Getting Started (Developer Guide)
+## 8. Chain Configuration
 
-### 5.1. Prerequisites
--   Node.js `v18.0` or later
--   `npm`
--   A Supabase account
--   MetaMask browser extension
+All chain configuration is in `src/config/chains.ts`. Chain IDs, explorer URLs, and RPC transports are **never hardcoded anywhere else**. This is enforced by code review — it's an explicit guardrail in `Agent.md`.
 
-### 5.2. Installation
-1.  Clone the repository: `git clone https://github.com/theweb3wizard/FlowForge.git`
-2.  Navigate to the directory: `cd FlowForge`
-3.  Install dependencies: `npm install`
-4.  Set up environment variables by copying `.env.example` to `.env.local` and filling in your Supabase and RPC details.
+```typescript
+// src/config/chains.ts
+export const SUPPORTED_CHAINS: SupportedChain[] = [
+  { id: 1,        name: 'Ethereum Mainnet', shortName: 'ETH',  isTestnet: false, ... },
+  { id: 11155111, name: 'Sepolia Testnet',  shortName: 'SEP',  isTestnet: true,  ... },
+  { id: 8453,     name: 'Base',             shortName: 'BASE', isTestnet: false, ... },
+  { id: 84532,    name: 'Base Sepolia',     shortName: 'BSEP', isTestnet: true,  ... },
+  { id: 137,      name: 'Polygon',          shortName: 'MATIC',isTestnet: false, ... },
+  { id: 42161,    name: 'Arbitrum One',     shortName: 'ARB',  isTestnet: false, ... },
+  { id: 10,       name: 'Optimism',         shortName: 'OP',   isTestnet: false, ... },
+  { id: 56,       name: 'BNB Smart Chain',  shortName: 'BSC',  isTestnet: false, ... },
+  { id: 1043,     name: 'BlockDAG Mainnet', shortName: 'BDAG', isTestnet: false, ... },
+] as const satisfies readonly SupportedChain[];
 
-### 5.3. Database Setup
-Execute the following SQL scripts in your Supabase SQL Editor in the specified order.
-
-**Script 1: Create Tables**
-```sql
--- Create contract_templates table for public templates
-CREATE TABLE public.contract_templates (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  description text,
-  icon text,
-  parameters jsonb,
-  abi jsonb NOT NULL,
-  bytecode text NOT NULL,
-  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'deprecated'::text, 'soon'::text])),
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT contract_templates_pkey PRIMARY KEY (id)
-);
-
--- Create user_contract_templates table for private, user-created templates
-CREATE TABLE public.user_contract_templates (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  creator_address text NOT NULL,
-  name text NOT NULL,
-  description text,
-  icon text DEFAULT 'FileCode'::text,
-  abi jsonb NOT NULL,
-  bytecode text NOT NULL,
-  parameters jsonb,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT user_contract_templates_pkey PRIMARY KEY (id),
-  CONSTRAINT user_contract_templates_creator_name_unique UNIQUE (creator_address, name)
-);
-
--- Create deployments table to record all contract deployments
-CREATE TABLE public.deployments (
-  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
-  contract_name text NOT NULL,
-  contract_address text NOT NULL,
-  deployer_address text NOT NULL,
-  deployed_at timestamp with time zone NOT NULL DEFAULT now(),
-  transaction_hash text,
-  template_id uuid,
-  network text NOT NULL DEFAULT 'blockdag-testnet'::text,
-  chain_id integer,
-  constructor_args jsonb DEFAULT '{}'::jsonb,
-  deployment_status text NOT NULL DEFAULT 'pending'::text,
-  error_message text,
-  CONSTRAINT deployments_pkey PRIMARY KEY (id)
-);
-
--- Create recipes table
-CREATE TABLE public.recipes (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  description text,
-  creator_address text NOT NULL,
-  steps jsonb NOT NULL DEFAULT '[]'::jsonb,
-  network text,
-  is_public boolean DEFAULT false,
-  tags text[],
-  execution_count integer DEFAULT 0,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT recipes_pkey PRIMARY KEY (id)
-);
-
--- Create recipe_executions table
-CREATE TABLE public.recipe_executions (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  recipe_id uuid,
-  executor_address text NOT NULL,
-  status text NOT NULL,
-  current_step integer DEFAULT 0,
-  total_steps integer NOT NULL,
-  step_results jsonb DEFAULT '[]'::jsonb,
-  started_at timestamp with time zone DEFAULT now(),
-  completed_at timestamp with time zone,
-  error_message text,
-  CONSTRAINT recipe_executions_pkey PRIMARY KEY (id),
-  CONSTRAINT recipe_executions_recipe_id_fkey FOREIGN KEY (recipe_id) REFERENCES public.recipes(id) ON DELETE CASCADE
-);
+export const VIEM_CHAINS: Record<number, Chain> = { ... };  // For wagmi config
+export function getChainById(id: number): SupportedChain | undefined
+export function getExplorerTxUrl(chain, txHash): string
+export function getExplorerAddressUrl(chain, address): string
 ```
 
-**Script 2: Create Views and Indexes**
-```sql
--- Create the unified 'all_templates' view
-CREATE OR REPLACE VIEW public.all_templates AS
-SELECT id, name, description, icon, abi, bytecode, parameters, created_at, 'public' AS source_table, NULL::text AS creator_address
-FROM public.contract_templates
-UNION ALL
-SELECT id, name, description, icon, abi, bytecode, parameters, created_at, 'user' AS source_table, creator_address
-FROM public.user_contract_templates;
+BlockDAG (chain ID 1043) is defined via viem's `defineChain` utility since it's not in viem's built-in chain list.
 
--- Create performance indexes
-CREATE INDEX idx_deployments_lower_deployer_address ON public.deployments (lower(deployer_address));
-CREATE INDEX idx_recipes_lower_creator_address ON public.recipes (lower(creator_address));
+Wagmi is configured with `http()` transports for all chains — no Alchemy/Infura dependency. The user's wallet provides the RPC connection.
+
+---
+
+## 9. Server Actions & Data Access
+
+### Data access layer (`src/lib/supabase/`)
+
+All data access functions follow the same contract:
+
+```typescript
+// Every function:
+// 1. Accepts the Supabase client as first argument (never instantiates its own)
+// 2. Returns { data: T | null; error: string | null }
+// 3. Never throws
+// 4. Maps snake_case DB columns to camelCase TypeScript types
+// 5. Logs raw Supabase errors to console, returns human-readable strings to callers
+
+async function getRecipeWithSteps(client: Supabase, recipeId: string)
+  → Promise<{ data: RecipeWithSteps | null; error: string | null }>
 ```
 
-**Script 3: Enable Row Level Security**
-```sql
--- Secure user_contract_templates
-ALTER TABLE public.user_contract_templates ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow full access to own templates" ON public.user_contract_templates FOR ALL
-USING (lower(auth.jwt() ->> 'address') = lower(creator_address));
+The Supabase type is `SupabaseClient<Database, 'public', any>` — the `any` third generic is intentional and documented. The `@supabase/ssr` server client and the browser client have different third generics that TypeScript complains about without it.
 
--- Secure recipes
-ALTER TABLE public.recipes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow public read access and individual read access" ON public.recipes FOR SELECT
-USING (is_public = true OR lower(auth.jwt() ->> 'address') = lower(creator_address));
-CREATE POLICY "Allow full access to own recipes" ON public.recipes FOR ALL
-USING (lower(auth.jwt() ->> 'address') = lower(creator_address));
+### Step upsert strategy
 
--- Secure recipe_executions
-ALTER TABLE public.recipe_executions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow access to own executions" ON public.recipe_executions FOR ALL
-USING (lower(auth.jwt() ->> 'address') = lower(executor_address));
+`upsertSteps` splits into two operations:
+
+```typescript
+// Steps without an id (new, or temp_ prefixed) → INSERT (Supabase generates UUID)
+// Steps with a real UUID → UPSERT with onConflict: 'id'
 ```
 
-### 5.4. Running Locally
+This is critical. Calling `.upsert()` on rows with `id: undefined` causes a PostgreSQL constraint error because Supabase can't resolve a conflict on a null primary key.
+
+### Server Actions (`src/lib/actions/recipeActions.ts`)
+
+```typescript
+'use server'  // All functions in this file are Server Actions
+
+saveRecipeAction(recipeId, meta, steps)   // Save builder state
+togglePublicAction(recipeId, isPublic)    // Share/unshare recipe
+cloneRecipeAction(sourceRecipeId)         // Copy recipe to current user's account
+```
+
+All Server Actions:
+1. Call `createServerClient()` to get an authenticated Supabase instance
+2. Verify `user.id === recipe.userId` before any write operation
+3. Return `{ success: boolean; error?: string }` — never throw
+
+---
+
+## 10. Pricing & Payments
+
+### Lemon Squeezy integration
+
+```typescript
+// src/lib/lemonsqueezy.ts (server-only)
+
+// Creates a checkout session and returns the URL
+createCheckoutUrl(variantId: string, userEmail?: string): Promise<string>
+
+// Verifies HMAC-SHA256 webhook signature using timingSafeEqual (timing-attack safe)
+verifyWebhookSignature(payload: string, signature: string): boolean
+```
+
+### Webhook handler (`src/app/api/webhooks/lemon-squeezy/route.ts`)
+
+1. Reads raw request body as text
+2. Verifies signature — returns `401` if invalid (no details exposed)
+3. Handles `order_created` and `subscription_created` events
+4. Maps variant ID to plan name via `LS_VARIANT_BUILDER` / `LS_VARIANT_TEAM` env vars
+5. Updates `user_metadata.plan` via `supabase.auth.admin.updateUserById`
+
+### Plan enforcement
+
+Plan is stored in `user_metadata.plan` (`'free'` | `'builder'` | `'team'`). Free plan limits (3 recipes, testnet only, no sharing) are enforced at the application layer in Server Actions and the builder UI.
+
+---
+
+## 11. Environment Variables
+
 ```bash
-npm run dev
+# Required — validated by src/lib/env.ts (Zod) at startup
+NEXT_PUBLIC_SUPABASE_URL=          # Supabase project URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=     # Supabase anon/public key
+NEXT_PUBLIC_APP_URL=               # Full app URL (http://localhost:9002 for dev)
+
+# Required for payments (server-only — never prefix with NEXT_PUBLIC_)
+LEMON_SQUEEZY_API_KEY=             # Lemon Squeezy API key
+LEMON_SQUEEZY_WEBHOOK_SECRET=      # Webhook signing secret (HMAC-SHA256)
+NEXT_PUBLIC_LEMON_SQUEEZY_STORE_ID= # Store ID
+
+# Optional — map Lemon Squeezy variant IDs to plan names
+LS_VARIANT_BUILDER=                # Variant ID for Builder plan
+LS_VARIANT_TEAM=                   # Variant ID for Team plan
 ```
-The application will be available at `http://localhost:9002`.
+
+`src/lib/env.ts` validates the first three with Zod on module load. In development, validation failures log a warning but don't crash the server. In production, they throw immediately — misconfigured deployments fail loudly at startup.
+
+---
+
+## 12. Local Development Setup
+
+```bash
+# 1. Clone
+git clone https://github.com/theweb3wizard/FlowForge.git
+cd FlowForge
+
+# 2. Install
+npm install
+
+# 3. Environment
+cp .env.example .env.local
+# Fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+# Set NEXT_PUBLIC_APP_URL=http://localhost:9002
+
+# 4. Database — run database/schema.sql in Supabase SQL Editor
+
+# 5. Dev server
+npm run dev
+# Opens on http://localhost:9002
+```
+
+**Important for Windows:** Always use `http://localhost:9002`, not the network IP address. Browser wallets (MetaMask, Phantom) only allow injected connections from `localhost` in development mode.
+
+**If you get HTTP 431:** Clear cookies for localhost:9002 in your browser DevTools (Application → Cookies → Delete All). This error is caused by accumulated stale Supabase session cookies, not a code bug.
+
+---
+
+## 13. Production Deployment
+
+### Vercel (recommended)
+
+1. Push to GitHub
+2. Import the repo in Vercel
+3. Set all environment variables from Section 11
+4. Deploy — Next.js is auto-detected
+
+`vercel.json` configures:
+- Security headers on all routes (X-Frame-Options: DENY, X-Content-Type-Options, etc.)
+- Webhook route `maxDuration: 10` to handle Lemon Squeezy timeouts
+- Framework: nextjs
+
+### Supabase checklist
+
+- [ ] Run `database/schema.sql` in the SQL Editor
+- [ ] Confirm RLS enabled on all three tables
+- [ ] Add production domain to Auth → URL Configuration → Allowed Redirect URLs
+- [ ] Note: Supabase admin client (used by webhook) requires `service_role` key, not anon key
+
+### robots.txt and sitemap
+
+Both are generated via Next.js Metadata API:
+
+- `robots.ts` allows `/`, `/pricing`, `/recipe/shared/*` and disallows `/dashboard`, `/api/*`, `/recipe/*/builder`
+- `sitemap.ts` includes static routes plus all `is_public = true` recipe URLs
+
+---
+
+## 14. Design Decisions & Tradeoffs
+
+### Why Zustand over React Context for builder state?
+
+The recipe builder has a deep component tree: `BuilderPage → StepList → StepListItem` and `BuilderPage → DeployStepConfig → ParamConfigurator → VariablePicker`. React Context would cause re-renders across the entire tree on every state change (step label edit, param toggle, etc.). Zustand's selector pattern (`useStore(s => s.specificField)`) ensures each component only re-renders when its subscribed slice changes.
+
+### Why client-side execution, not a server-side queue?
+
+Every step requires a wallet signature from the user in real time. There is no way to automate this server-side. The execution loop waits at each step for the user to approve the MetaMask/Phantom popup. This is not a limitation — it's the correct security model for non-custodial tooling.
+
+### Why only three database tables?
+
+The original hackathon codebase had `contract_templates`, `deployments`, `recipe_executions`, `user_contract_templates`, and a `VIEW`. The rebuild reduced this to three tables by:
+
+1. Moving templates to static JSON in `src/config/starterTemplates.ts` (6 pre-built templates, zero DB maintenance)
+2. Eliminating the public deployments gallery (noise for new users, complexity for the system)
+3. Merging execution tracking into `executions.step_results` JSONB instead of a separate table
+
+This makes the schema easier to reason about, RLS policies simpler, and eliminates the N+1 query problem from the template viewer.
+
+### Why is ABI parsing deliberately scoped?
+
+The original `src/lib/abi/parser.ts` was 571 lines and tried to handle every possible ABI structure. It became a perpetual maintenance burden as each new contract type introduced edge cases. The rebuild scopes it to exactly what FlowForge needs:
+
+- Constructor inputs (for deploy steps)
+- Non-view, non-pure functions (for interact steps)
+
+No tuple validation, no overload resolution, no struct unwrapping. Users who hit edge cases can see the error inline and fix their ABI.
+
+### Why viem instead of ethers.js?
+
+ethers.js v5 (which was in the original codebase) uses `BigNumber` instead of native `bigint`, has a 128kb bundle size, and has a fundamentally different API from wagmi v2. viem is wagmi v2's native peer dependency, uses native `bigint`, is tree-shakeable, and has a smaller bundle footprint. The migration was non-negotiable.
+
+### Why anonymous Supabase auth instead of full SIWE?
+
+SIWE (Sign-In with Ethereum) requires a backend nonce endpoint, a signing step, and a verification step — three round-trips for what should be a one-click flow. For v1 with tight build constraints, `signInAnonymously()` + `updateUser({ wallet_address })` achieves the same result: a unique, authenticated Supabase user identified by wallet address. The migration path to full SIWE is documented in `WalletSignIn.tsx`.
+
+---
+
+*FlowForge is built and maintained by [The Web3 Wizard (Khalid)](https://github.com/theweb3wizard).*
+*For the product strategy and rebuild rationale, see `Revive.md`.*
+*For the agent execution roadmap used to build this, see `Agent.md`.*
