@@ -43,3 +43,11 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# Project IDX (Firebase dev environment)
+.idx/
+
+# Hardhat / Solidity artifacts (not used in production)
+artifacts/
+cache/
+typechain-types/
