@@ -54,7 +54,7 @@ export default function PrivacyPolicyPage() {
               Privacy Policy
             </h1>
             <p className="max-w-3xl text-base leading-8 text-muted-foreground">
-              FlowForge respects your privacy and only uses the information needed to power your deployment workflows, authentication, and subscription experience.
+              FlowForge respects your privacy and only uses the information needed to power your deployment workflows and authentication.
             </p>
             <div className="flex flex-wrap gap-3 text-sm font-medium text-foreground">
               <Link href="/terms-of-service" className="rounded-full border border-border px-4 py-2 transition hover:border-primary hover:text-primary">
@@ -99,11 +99,10 @@ export default function PrivacyPolicyPage() {
               <ul className="list-disc space-y-2 pl-5">
                 <li>Persist recipes and execution history.</li>
                 <li>Control access to private and public recipes.</li>
-                <li>Manage subscription status for paid plans.</li>
-                <li>Send transactional messages related to account and billing activity.</li>
+
               </ul>
               <p>
-                We do not sell your personal data to third parties. Data is only shared with service providers that help operate FlowForge, such as Supabase and Lemon Squeezy.
+                We do not sell your personal data to third parties. Data is only shared with service providers that help operate FlowForge, such as Supabase.
               </p>
             </div>
           </section>
@@ -115,7 +114,7 @@ export default function PrivacyPolicyPage() {
                 FlowForge relies on third-party services for authentication, data storage, and billing. These providers may collect information according to their own privacy terms.
               </p>
               <p>
-                Key providers include Supabase for database and authentication, and Lemon Squeezy for subscription management. We encourage you to review their privacy policies as well.
+                Key providers include Supabase for database and authentication. We encourage you to review their privacy policies as well.
               </p>
             </div>
           </section>

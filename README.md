@@ -57,7 +57,7 @@ You define the sequence once as a **Recipe** — an ordered list of deployment a
 
 - **Dark, premium UI** — Built for developers. Monospace fonts for addresses and hashes. Colour-coded step states (amber → running, green → success, red → failed).
 - **No wallet lock-in** — Uses wagmi v2's injected connector. Works with MetaMask, Phantom (EVM mode), Rabby, and any browser wallet.
-- **Pricing tiers** — Free (testnet, 3 recipes), Builder ($49/mo, mainnet + sharing), Team ($99/mo, shared workspace).
+- **100% Free & Open Source** — No paywalls, no limits. All features available to everyone, forever. MIT licensed.
 
 ---
 
@@ -72,7 +72,7 @@ You define the sequence once as a **Recipe** — an ordered list of deployment a
 | Server state | **TanStack Query v5** | Automatic caching, background refetch, and optimistic updates for Supabase data. |
 | Database | **Supabase (PostgreSQL)** | Row Level Security on all tables. Users can only read/write their own data. Anonymous + wallet auth. |
 | Wallet | **wagmi v2 + viem** | Type-safe EVM interactions. `deployContractAsync` and `writeContractAsync` for the execution engine. No ethers.js. |
-| Payments | **Lemon Squeezy** | Webhook-based subscription management. Plan stored in Supabase user metadata. |
+| Payments | **None** | Completely free and open source. No payment processing needed. |
 | Drag and drop | **@dnd-kit** | Accessible, performant drag-to-reorder for the recipe step list. |
 
 ---
@@ -200,10 +200,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 # App URL
 NEXT_PUBLIC_APP_URL=http://localhost:9002
 
-# Lemon Squeezy (leave blank for local dev)
-LEMON_SQUEEZY_API_KEY=
-LEMON_SQUEEZY_WEBHOOK_SECRET=
-NEXT_PUBLIC_LEMON_SQUEEZY_STORE_ID=
+# No payment keys needed — FlowForge is free and open source
 ```
 
 ### 3. Apply the database schema
@@ -322,11 +319,7 @@ All chain configuration lives exclusively in `src/config/chains.ts`. Chain IDs, 
 
 ## Pricing
 
-| Plan | Price | Limits |
-|------|-------|--------|
-| **Free** | $0/mo | 3 recipes, testnet only, no sharing |
-| **Builder** | $49/mo ($39 annual) | Unlimited recipes, mainnet, sharing, 6-month history |
-| **Team** | $99/mo ($79 annual) | Everything in Builder + team workspace (5 members), 12-month history, priority support |
+**FlowForge is 100% free and open source.** All features are available to everyone with no limits or paywalls. MIT licensed.
 
 ---
 
@@ -335,7 +328,7 @@ All chain configuration lives exclusively in `src/config/chains.ts`. Chain IDs, 
 - **No private keys** — FlowForge never touches your private keys. All transactions are signed by your own wallet.
 - **Row Level Security** — Every Supabase table has RLS enabled. Users can only read and write their own data.
 - **Server Actions authenticated** — All write operations (save, share, clone) verify the Supabase session server-side before executing.
-- **Webhook verification** — Lemon Squeezy webhooks are verified with HMAC-SHA256 using `timingSafeEqual` to prevent timing attacks.
+- **Open source** — Fully transparent codebase. MIT licensed and open for contributions.
 - **Env validation** — `src/lib/env.ts` validates all required environment variables at startup using Zod. Misconfigured deployments fail loudly, not silently.
 
 ---

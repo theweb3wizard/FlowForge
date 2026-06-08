@@ -1,6 +1,5 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
-import Script from 'next/script';
 import './globals.css';
 import { Providers } from '@/components/layout/Providers';
 import { Footer } from '@/components/common/Footer';
@@ -86,15 +85,6 @@ export const metadata: Metadata = {
     creator: '@theweb3wizard',
   },
 
-  // PWA / browser appearance
-  themeColor: '#0A0A0A',
-  colorScheme: 'dark',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
-
   // Robots
   robots: {
     index: true,
@@ -105,6 +95,14 @@ export const metadata: Metadata = {
       'max-image-preview': 'large',
     },
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0A0A0A',
+  colorScheme: 'dark',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({
@@ -123,11 +121,6 @@ export default function RootLayout({
       >
         <Providers>{children}</Providers>
         <Footer />
-        {/* Paddle.js — loaded after page is interactive (strategy="lazyOnload") */}
-        <Script
-          src="https://cdn.paddle.com/paddle/v2/paddle.js"
-          strategy="lazyOnload"
-        />
       </body>
     </html>
   );

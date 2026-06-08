@@ -2,7 +2,7 @@
 
 **Version:** 2.0 (Production Rebuild)
 **Author:** The Web3 Wizard (Khalid)
-**Stack:** Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui · wagmi v2 · viem · Zustand · TanStack Query v5 · Supabase · Lemon Squeezy
+**Stack:** Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui · wagmi v2 · viem · Zustand · TanStack Query v5 · Supabase
 
 ---
 
@@ -17,11 +17,10 @@
 7. [Authentication Flow](#7-authentication-flow)
 8. [Chain Configuration](#8-chain-configuration)
 9. [Server Actions & Data Access](#9-server-actions--data-access)
-10. [Pricing & Payments](#10-pricing--payments)
-11. [Environment Variables](#11-environment-variables)
-12. [Local Development Setup](#12-local-development-setup)
-13. [Production Deployment](#13-production-deployment)
-14. [Design Decisions & Tradeoffs](#14-design-decisions--tradeoffs)
+10. [Environment Variables](#10-environment-variables)
+11. [Local Development Setup](#11-local-development-setup)
+12. [Production Deployment](#12-production-deployment)
+13. [Design Decisions & Tradeoffs](#13-design-decisions--tradeoffs)
 
 ---
 
@@ -521,35 +520,7 @@ All Server Actions:
 
 ---
 
-## 10. Pricing & Payments
-
-### Lemon Squeezy integration
-
-```typescript
-// src/lib/lemonsqueezy.ts (server-only)
-
-// Creates a checkout session and returns the URL
-createCheckoutUrl(variantId: string, userEmail?: string): Promise<string>
-
-// Verifies HMAC-SHA256 webhook signature using timingSafeEqual (timing-attack safe)
-verifyWebhookSignature(payload: string, signature: string): boolean
-```
-
-### Webhook handler (`src/app/api/webhooks/lemon-squeezy/route.ts`)
-
-1. Reads raw request body as text
-2. Verifies signature — returns `401` if invalid (no details exposed)
-3. Handles `order_created` and `subscription_created` events
-4. Maps variant ID to plan name via `LS_VARIANT_BUILDER` / `LS_VARIANT_TEAM` env vars
-5. Updates `user_metadata.plan` via `supabase.auth.admin.updateUserById`
-
-### Plan enforcement
-
-Plan is stored in `user_metadata.plan` (`'free'` | `'builder'` | `'team'`). Free plan limits (3 recipes, testnet only, no sharing) are enforced at the application layer in Server Actions and the builder UI.
-
----
-
-## 11. Environment Variables
+## 10. Environment Variables
 
 ```bash
 # Required — validated by src/lib/env.ts (Zod) at startup
@@ -557,21 +528,13 @@ NEXT_PUBLIC_SUPABASE_URL=          # Supabase project URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=     # Supabase anon/public key
 NEXT_PUBLIC_APP_URL=               # Full app URL (http://localhost:9002 for dev)
 
-# Required for payments (server-only — never prefix with NEXT_PUBLIC_)
-LEMON_SQUEEZY_API_KEY=             # Lemon Squeezy API key
-LEMON_SQUEEZY_WEBHOOK_SECRET=      # Webhook signing secret (HMAC-SHA256)
-NEXT_PUBLIC_LEMON_SQUEEZY_STORE_ID= # Store ID
-
-# Optional — map Lemon Squeezy variant IDs to plan names
-LS_VARIANT_BUILDER=                # Variant ID for Builder plan
-LS_VARIANT_TEAM=                   # Variant ID for Team plan
 ```
 
 `src/lib/env.ts` validates the first three with Zod on module load. In development, validation failures log a warning but don't crash the server. In production, they throw immediately — misconfigured deployments fail loudly at startup.
 
 ---
 
-## 12. Local Development Setup
+## 11. Local Development Setup
 
 ```bash
 # 1. Clone
@@ -599,18 +562,17 @@ npm run dev
 
 ---
 
-## 13. Production Deployment
+## 12. Production Deployment
 
 ### Vercel (recommended)
 
 1. Push to GitHub
 2. Import the repo in Vercel
-3. Set all environment variables from Section 11
+3. Set all environment variables from Section 10
 4. Deploy — Next.js is auto-detected
 
 `vercel.json` configures:
 - Security headers on all routes (X-Frame-Options: DENY, X-Content-Type-Options, etc.)
-- Webhook route `maxDuration: 10` to handle Lemon Squeezy timeouts
 - Framework: nextjs
 
 ### Supabase checklist
@@ -624,12 +586,12 @@ npm run dev
 
 Both are generated via Next.js Metadata API:
 
-- `robots.ts` allows `/`, `/pricing`, `/recipe/shared/*` and disallows `/dashboard`, `/api/*`, `/recipe/*/builder`
+- `robots.ts` allows `/`, `/recipe/shared/*` and disallows `/dashboard`, `/api/*`, `/pricing`, `/recipe/*/builder`
 - `sitemap.ts` includes static routes plus all `is_public = true` recipe URLs
 
 ---
 
-## 14. Design Decisions & Tradeoffs
+## 13. Design Decisions & Tradeoffs
 
 ### Why Zustand over React Context for builder state?
 

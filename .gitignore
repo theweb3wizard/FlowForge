@@ -51,3 +51,6 @@ firestore-debug.log
 artifacts/
 cache/
 typechain-types/
+
+# cloned agent skills (installed globally at ~/.agents/skills/)
+three-agent-skills/

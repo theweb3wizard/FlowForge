@@ -112,19 +112,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section className={sectionClass}>
-            <h2 className="text-2xl font-semibold">5. Subscriptions and Payment</h2>
-            <div className="mt-4 space-y-4 text-sm leading-7 text-muted-foreground">
-              <p>
-                Paid plans are managed through Lemon Squeezy. Your subscription status is stored in Supabase and used to control access to premium functionality.
-              </p>
-              <p>
-                Payment terms, renewals, and cancellations follow Lemon Squeezy's policies. Any payment disputes should be directed to Lemon Squeezy support.
-              </p>
-            </div>
-          </section>
-
-          <section className={sectionClass}>
-            <h2 className="text-2xl font-semibold">6. Disclaimers and Limitation of Liability</h2>
+            <h2 className="text-2xl font-semibold">5. Disclaimers and Limitation of Liability</h2>
             <div className="mt-4 space-y-4 text-sm leading-7 text-muted-foreground">
               <p>
                 FlowForge is provided "as is" without warranties of any kind. We do not guarantee that the service will be uninterrupted, error-free, or secure.
@@ -136,7 +124,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <section className={sectionClass}>
-            <h2 className="text-2xl font-semibold">7. Changes to Terms</h2>
+            <h2 className="text-2xl font-semibold">6. Changes to Terms</h2>
             <div className="mt-4 space-y-4 text-sm leading-7 text-muted-foreground">
               <p>
                 We may update these terms from time to time. Material changes will be posted on this page and notified through the service if required.

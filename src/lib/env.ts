@@ -5,9 +5,6 @@ import { z } from 'zod';
  * This module is imported at the top of the Supabase server client so that
  * any misconfigured deployment fails loudly at startup rather than silently
  * at request time with a cryptic undefined error.
- *
- * Server-only vars (LEMON_SQUEEZY_*) are validated separately in their
- * respective modules so they are never evaluated in browser bundles.
  */
 
 const envSchema = z.object({

@@ -11,12 +11,6 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     priority: 1.0,
   },
   {
-    url: `${APP_URL}/pricing`,
-    lastModified: new Date(),
-    changeFrequency: 'monthly',
-    priority: 0.8,
-  },
-  {
     url: `${APP_URL}/privacy-policy`,
     lastModified: new Date(),
     changeFrequency: 'yearly',

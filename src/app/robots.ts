@@ -7,8 +7,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/pricing', '/recipe/shared/'],
-        disallow: ['/dashboard', '/api/', '/recipe/'],
+        allow: ['/', '/recipe/shared/'],
+        disallow: ['/dashboard', '/api/', '/pricing', '/recipe/'],
       },
       {
         // Re-allow shared recipe URLs that were caught by /recipe/ disallow
