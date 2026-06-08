@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 import { Providers } from '@/components/layout/Providers';
+import { Footer } from '@/components/common/Footer';
 import { cn } from '@/lib/utils';
 
 const inter = Inter({
@@ -121,6 +122,7 @@ export default function RootLayout({
         )}
       >
         <Providers>{children}</Providers>
+        <Footer />
         {/* Paddle.js — loaded after page is interactive (strategy="lazyOnload") */}
         <Script
           src="https://cdn.paddle.com/paddle/v2/paddle.js"

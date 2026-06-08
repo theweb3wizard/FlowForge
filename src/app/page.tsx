@@ -214,10 +214,6 @@ export default function LandingPage() {
           </Button>
         </div>
       </section>
-
-      <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">
-        FlowForge by The Web3 Wizard · Built for EVM Developers
-      </footer>
     </div>
   );
 }

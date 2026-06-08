@@ -1,7 +1,90 @@
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { BillingToggle } from '@/components/pricing/BillingToggle';
 import { PricingCard } from '@/components/pricing/PricingCard';
 import { Separator } from '@/components/ui/separator';
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://flowforge.app';
+
+export const metadata: Metadata = {
+  title: 'Pricing | FlowForge',
+  description:
+    'Compare FlowForge plans for EVM deployment workflows. Start free for testnets or upgrade for mainnet, team collaboration, and recipe sharing.',
+};
+
+const pricingSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'FlowForge',
+  url: `${APP_URL}/pricing`,
+  description:
+    'A GUI-first smart contract deployment workflow builder for any EVM chain.',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Web',
+  offers: [
+    {
+      '@type': 'Offer',
+      name: 'Free Plan',
+      price: '0.00',
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+      url: `${APP_URL}/pricing`,
+    },
+    {
+      '@type': 'Offer',
+      name: 'Builder Plan',
+      price: '49.00',
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+      url: `${APP_URL}/pricing`,
+    },
+    {
+      '@type': 'Offer',
+      name: 'Team Plan',
+      price: '99.00',
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+      url: `${APP_URL}/pricing`,
+    },
+  ],
+  mainEntity: {
+    '@type': 'FAQPage',
+    mainEntity: [
+      {
+        '@type': 'Question',
+        name: 'Can I use FlowForge on mainnet with the free plan?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'No. The free plan supports testnet deployments only. Upgrade to Builder or Team to deploy on mainnet.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'What chains are supported?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'FlowForge supports 9 EVM chains including Ethereum Mainnet, Polygon, Arbitrum, Optimism, BNB Smart Chain, Base, and BlockDAG Mainnet.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Can I cancel anytime?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Yes. Cancel at any time and keep access to paid features until the end of your billing period.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Is my contract bytecode stored securely?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Yes. Recipe data is stored with row-level security so only you can access your own recipes unless you share them.',
+        },
+      },
+    ],
+  },
+};
 
 type PricingPageProps = {
   searchParams: Promise<{ billing?: string }>;
@@ -41,6 +124,10 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-16 px-4 py-12 sm:px-6 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingSchema) }}
+      />
       {/* Header */}
       <div className="flex flex-col items-center gap-6 text-center">
         <div className="space-y-2">
