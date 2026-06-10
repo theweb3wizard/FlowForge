@@ -91,27 +91,27 @@ export default function LandingPage() {
         <Hero3D />
         <div className="relative z-10 grid items-center gap-12 lg:grid-cols-2">
           <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-3 py-1 text-xs text-warning backdrop-blur-sm">
-              <Sparkles className="h-3 w-3" />
-              OZ Defender alternative — now 100% free & open source
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber/30 bg-amber/10 px-3 py-1 text-xs text-amber backdrop-blur-sm">
+              <span className="rounded bg-amber/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">Beta</span>
+              Now with AI code generation &mdash; describe, generate, deploy
             </div>
             <div className="space-y-4">
               <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
-                Build deployment workflows.
+                Describe. Generate. Deploy.
                 <br />
-                <span className="bg-gradient-to-r from-cyan-400 via-violet-400 to-amber-400 bg-clip-text text-transparent">
-                  Run on any EVM chain.
+                <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-emerald-400 bg-clip-text text-transparent">
+                  Smart contracts, in minutes.
                 </span>
               </h1>
               <p className="max-w-xl text-lg text-muted-foreground">
-                Define a sequence of contract deployments once. Reuse it across
-                testnets and mainnet. No scripts, no copy-paste errors.
+                Describe what you want in plain English. AI generates production-ready Solidity.
+                Compile, deploy, and interact &mdash; all in your browser. No local setup, no CLI, no gas spent until you're ready.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Button asChild size="lg" className="gap-2">
-                <Link href="/sign-in">
-                  Start Building Free
+                <Link href="/playground">
+                  Open Playground
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -122,15 +122,15 @@ export default function LandingPage() {
             <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                No local setup
+                AI code generation
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan-500" />
-                Any EVM chain
+                Live compilation
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
-                Variable passing
+                Multi-step workflows
               </span>
             </div>
           </div>
@@ -158,7 +158,7 @@ export default function LandingPage() {
       </section>
 
       <section className="mx-auto max-w-screen-xl px-4 pb-16 sm:px-6 lg:px-8">
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -190,25 +190,25 @@ export default function LandingPage() {
       </section>
 
       <section className="mx-auto max-w-screen-xl px-4 pb-16 sm:px-6 lg:px-8">
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3">
           {[
             {
-              title: 'No Local Setup',
+              title: 'AI Code Generation',
               description:
-                'Connect your wallet and start building. No Node.js, no config files, no terminal.',
-              gradient: 'from-cyan-500/20 to-transparent',
+                'Describe your contract in plain English. AI writes production-ready Solidity with OpenZeppelin imports, NatSpec, and gas notes.',
+              gradient: 'from-indigo-500/20 to-transparent',
             },
             {
-              title: 'Variable Passing',
+              title: 'Live Compilation & Audit',
               description:
-                'Each step automatically receives the contract address from the previous step. No copy-paste.',
+                'Every keystroke compiles in real-time via solc-js. AI security audit flags reentrancy, access control issues, and more.',
               gradient: 'from-violet-500/20 to-transparent',
             },
             {
-              title: 'Share Recipes',
+              title: 'Multi-Step Deployments',
               description:
-                'Generate a link to your recipe. Your team runs the same workflow on any chain.',
-              gradient: 'from-amber-500/20 to-transparent',
+                'Chain contract deployments together with variable passing. Deploy a token, then a staking pool that references it — one click.',
+              gradient: 'from-emerald-500/20 to-transparent',
             },
           ].map((item) => (
             <Card key={item.title} className="relative overflow-hidden">
@@ -230,15 +230,15 @@ export default function LandingPage() {
         <div className="flex flex-col items-start justify-between gap-6 rounded-lg border border-border bg-gradient-to-br from-card to-card/50 p-8 sm:flex-row sm:items-center">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">
-              Ready to stop writing deployment scripts?
+              From idea to on-chain in minutes.
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Free and open source. No limits, no paywalls.
+              AI-powered contract generation. Live compilation. Multi-chain deployment. Free to start.
             </p>
           </div>
           <Button asChild size="lg" className="gap-2">
-            <Link href="/sign-in">
-              Get Started Free
+            <Link href="/playground">
+              Open Playground
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

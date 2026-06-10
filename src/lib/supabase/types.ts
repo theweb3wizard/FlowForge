@@ -16,6 +16,9 @@ export interface Database {
           name: string;
           description: string | null;
           is_public: boolean;
+          source_code: string | null;
+          compiler_version: string | null;
+          playground_data: Json;
           created_at: string;
           updated_at: string;
         };
@@ -25,6 +28,9 @@ export interface Database {
           name: string;
           description?: string | null;
           is_public?: boolean;
+          source_code?: string | null;
+          compiler_version?: string | null;
+          playground_data?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -34,6 +40,9 @@ export interface Database {
           name?: string;
           description?: string | null;
           is_public?: boolean;
+          source_code?: string | null;
+          compiler_version?: string | null;
+          playground_data?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -52,7 +61,6 @@ export interface Database {
           target_address: string | null;
           function_name: string | null;
           constructor_params: Json;
-          created_at?: never;
         };
         Insert: {
           id?: string;
@@ -115,6 +123,78 @@ export interface Database {
           step_results?: Json;
           started_at?: string;
           completed_at?: string | null;
+        };
+        Relationships: [];
+      };
+      generation_log: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          anon_token: string | null;
+          prompt: string;
+          generated_at: string;
+          tokens_used: number | null;
+          model_used: string;
+          compilation_success: boolean | null;
+          security_flags: Json;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          anon_token?: string | null;
+          prompt: string;
+          generated_at?: string;
+          tokens_used?: number | null;
+          model_used?: string;
+          compilation_success?: boolean | null;
+          security_flags?: Json;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          anon_token?: string | null;
+          prompt?: string;
+          generated_at?: string;
+          tokens_used?: number | null;
+          model_used?: string;
+          compilation_success?: boolean | null;
+          security_flags?: Json;
+        };
+        Relationships: [];
+      };
+      deployments: {
+        Row: {
+          id: string;
+          user_id: string;
+          recipe_id: string | null;
+          network: string;
+          contract_address: string;
+          transaction_hash: string;
+          deployer_address: string | null;
+          status: 'pending' | 'confirmed' | 'failed';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          recipe_id?: string | null;
+          network: string;
+          contract_address: string;
+          transaction_hash: string;
+          deployer_address?: string | null;
+          status?: 'pending' | 'confirmed' | 'failed';
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          recipe_id?: string | null;
+          network?: string;
+          contract_address?: string;
+          transaction_hash?: string;
+          deployer_address?: string | null;
+          status?: 'pending' | 'confirmed' | 'failed';
+          created_at?: string;
         };
         Relationships: [];
       };

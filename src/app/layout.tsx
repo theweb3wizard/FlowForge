@@ -26,13 +26,15 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://flowforge.app';
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: {
-    default: 'FlowForge — EVM Deployment Workflow Builder',
+    default: 'FlowForge — AI-Powered Smart Contract Playground & Deployment Workflow Builder',
     template: '%s · FlowForge',
   },
   description:
-    'Build multi-step smart contract deployment workflows for any EVM chain. Define once, run anywhere. The GUI-first alternative to Hardhat Ignition and OpenZeppelin Defender.',
+    'Generate, compile, deploy, and interact with smart contracts — all in your browser. AI-powered Solidity generation, live compilation, multi-chain deployment workflows.',
   keywords: [
     'smart contract deployment',
+    'AI smart contract generator',
+    'Solidity playground',
     'EVM',
     'blockchain developer tools',
     'deployment workflow',
@@ -61,9 +63,9 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: APP_URL,
-    title: 'FlowForge — EVM Deployment Workflow Builder',
+    title: 'FlowForge — AI-Powered Smart Contract Playground',
     description:
-      'Stop writing deployment scripts. Build a Recipe instead. Define multi-step contract deployments once, run them on 9 EVM chains. The OZ Defender alternative.',
+      'Generate Solidity with AI, compile live, deploy to any EVM chain, and interact with deployed contracts — all from your browser.',
     siteName: 'FlowForge',
     images: [
       {
@@ -78,9 +80,9 @@ export const metadata: Metadata = {
   // Twitter / X card
   twitter: {
     card: 'summary_large_image',
-    title: 'FlowForge — EVM Deployment Workflow Builder',
+    title: 'FlowForge — AI-Powered Smart Contract Playground',
     description:
-      'Stop writing deployment scripts. Build a Recipe instead. Define multi-step contract deployments once, run them on 9 EVM chains.',
+      'Generate, compile, deploy, and interact with smart contracts. AI-powered Solidity generation and multi-chain deployment workflows.',
     images: ['/og-image.svg'],
     creator: '@theweb3wizard',
   },

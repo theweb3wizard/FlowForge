@@ -11,6 +11,12 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     priority: 1.0,
   },
   {
+    url: `${APP_URL}/playground`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly',
+    priority: 0.9,
+  },
+  {
     url: `${APP_URL}/privacy-policy`,
     lastModified: new Date(),
     changeFrequency: 'yearly',

@@ -59,6 +59,22 @@ export default {
         border: 'var(--border)',
         input: 'var(--input)',
         ring: 'var(--ring)',
+        indigo: {
+          DEFAULT: 'rgb(99 102 241)',
+          hover: 'rgb(79 70 229)',
+        },
+        emerald: {
+          DEFAULT: 'rgb(16 185 129)',
+          foreground: 'rgb(209 250 229)',
+        },
+        amber: {
+          DEFAULT: 'rgb(245 158 11)',
+          foreground: 'rgb(254 243 199)',
+        },
+        danger: {
+          DEFAULT: 'rgb(239 68 68)',
+          foreground: 'rgb(254 226 226)',
+        },
         chart: {
           '1': 'hsl(var(--chart-1))',
           '2': 'hsl(var(--chart-2))',

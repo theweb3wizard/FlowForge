@@ -144,3 +144,59 @@ export async function cloneRecipeAction(
 
   return { success: true, newRecipeId: newRecipe.id };
 }
+
+export async function createRecipeFromPlaygroundAction(
+  name: string,
+  sourceCode: string,
+  abi: unknown[],
+  bytecode: string | null,
+): Promise<{ success: boolean; recipeId?: string; error?: string }> {
+  const supabase = await createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'You must be signed in.' };
+  }
+
+  const { data: recipe, error: createError } = await createRecipe(
+    supabase as Supabase,
+    user.id,
+    { name, description: 'Created from Playground' },
+  );
+
+  if (createError || !recipe) {
+    return { success: false, error: createError ?? 'Failed to create recipe.' };
+  }
+
+  // Save source code to the recipe
+  await supabase
+    .from('recipes')
+    .update({ source_code: sourceCode })
+    .eq('id', recipe.id);
+
+  if (bytecode && abi.length > 0) {
+    const steps: UpsertStepPayload[] = [
+      {
+        recipeId: recipe.id,
+        stepOrder: 0,
+        stepType: 'deploy',
+        label: name,
+        contractName: name,
+        abi,
+        bytecode,
+        targetAddress: null,
+        functionName: null,
+        constructorParams: [],
+      },
+    ];
+
+    const { error: stepsError } = await upsertSteps(supabase as Supabase, steps);
+    if (stepsError) {
+      return { success: false, error: stepsError };
+    }
+  }
+
+  return { success: true, recipeId: recipe.id };
+}

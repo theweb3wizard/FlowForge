@@ -47,7 +47,7 @@ export default function HowItWorksPage() {
 
         <HowItWorks3D />
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3">
           {STEPS.map((step) => {
             const Icon = step.icon;
             return (

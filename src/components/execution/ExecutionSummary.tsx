@@ -13,6 +13,7 @@ type ExecutionSummaryProps = {
   completedResults: StepResult[];
   recipeId: string;
   error: string | null;
+  chainId?: number;
 };
 
 export function ExecutionSummary({
@@ -20,6 +21,7 @@ export function ExecutionSummary({
   completedResults,
   recipeId,
   error,
+  chainId,
 }: ExecutionSummaryProps) {
   const [copied, setCopied] = useState(false);
 
@@ -92,7 +94,7 @@ export function ExecutionSummary({
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="gap-2" asChild>
-            <Link href={`/recipe/${recipeId}/run`}>
+            <Link href={`/recipe/${recipeId}/run${chainId ? `?chainId=${chainId}` : ''}`}>
               <RefreshCw className="h-3 w-3" />
               Run Again
             </Link>
@@ -131,18 +133,12 @@ export function ExecutionSummary({
       )}
 
       <div className="flex flex-wrap gap-3">
-        {/*
-          v2: Full resume from step N via resumeFrom query param.
-          Currently re-runs the entire recipe from the beginning.
-          Resume mechanism: load completedResults from Supabase,
-          skip steps with stepOrder < resumeFrom, pre-fill their outputs.
-        */}
         <Button variant="outline" size="sm" className="gap-2" asChild>
           <Link
             href={
               failedStepOrder !== null
-                ? `/recipe/${recipeId}/run?resumeFrom=${failedStepOrder}`
-                : `/recipe/${recipeId}/run`
+                ? `/recipe/${recipeId}/run?resumeFrom=${failedStepOrder}${chainId ? `&chainId=${chainId}` : ''}`
+                : `/recipe/${recipeId}/run${chainId ? `?chainId=${chainId}` : ''}`
             }
           >
             <RefreshCw className="h-3 w-3" />
