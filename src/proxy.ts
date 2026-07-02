@@ -1,10 +1,7 @@
-import { type NextRequest } from 'next/server';
-import { auth } from '@/lib/auth/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
-export async function proxy(request: NextRequest) {
-  const middleware = auth.middleware({ loginUrl: '/auth/sign-in' });
-  const handler = middleware(request);
-  return handler;
+export async function proxy(_request: NextRequest) {
+  return NextResponse.next();
 }
 
 export const config = {
