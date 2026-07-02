@@ -1,10 +1,9 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { createServerClient } from '@/lib/supabase/server';
-import { getRecipeWithSteps } from '@/lib/supabase/recipes';
-import { getExecutionsByRecipe } from '@/lib/supabase/executions';
-import type { Supabase } from '@/lib/supabase/databaseClient';
+import { auth } from '@/lib/auth/server';
+import { getRecipeWithSteps } from '@/lib/db/recipes';
+import { getExecutionsByRecipe } from '@/lib/db/executions';
 import { ExecutionHistoryList } from '@/components/execution/ExecutionHistoryList';
 import { Button } from '@/components/ui/button';
 
@@ -14,26 +13,19 @@ type HistoryPageProps = {
 
 export default async function HistoryPage({ params }: HistoryPageProps) {
   const { id } = await params;
-  const supabase = await createServerClient();
+  const { data: session } = await auth.getSession();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (!session?.user) {
     notFound();
   }
 
-  const { data: recipe } = await getRecipeWithSteps(supabase as Supabase, id);
+  const { data: recipe } = await getRecipeWithSteps(id);
 
-  if (!recipe || recipe.userId !== user.id) {
+  if (!recipe || recipe.userId !== session.user.id) {
     notFound();
   }
 
-  const { data: executions, error } = await getExecutionsByRecipe(
-    supabase as Supabase,
-    id,
-  );
+  const { data: executions, error } = await getExecutionsByRecipe(id);
 
   if (error) {
     return (

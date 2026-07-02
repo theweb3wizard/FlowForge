@@ -2,10 +2,8 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { createClient } from '@/lib/supabase/client';
-import { updateRecipe } from '@/lib/supabase/recipes';
-import { upsertSteps } from '@/lib/supabase/recipeSteps';
-import type { Supabase } from '@/lib/supabase/databaseClient';
+import { updateRecipe } from '@/lib/db/recipes';
+import { upsertSteps } from '@/lib/db/recipeSteps';
 import { useRecipeBuilderStore } from '@/stores/recipeBuilderStore';
 import type { RecipeWithSteps, UpsertStepPayload } from '@/types/recipe';
 import { BuilderToolbar } from '@/components/builder/BuilderToolbar';
@@ -41,10 +39,8 @@ export function BuilderPage({ recipe }: BuilderPageProps) {
     if (!recipeId) return;
 
     setSaving(true);
-    const supabase = createClient();
 
-    // Update recipe meta
-    const { error: metaError } = await updateRecipe(supabase as Supabase, recipeId, {
+    const { error: metaError } = await updateRecipe(recipeId, {
       name: recipeName,
       description: recipeDescription || undefined,
       isPublic,
@@ -56,16 +52,14 @@ export function BuilderPage({ recipe }: BuilderPageProps) {
       return;
     }
 
-    // Upsert all steps — filter out temp IDs for new steps (upsert handles both)
     const stepPayloads: UpsertStepPayload[] = steps.map((step) => ({
       ...step,
-      // Keep temp_ IDs as undefined so Supabase generates a real UUID on insert
       id: step.id.startsWith('temp_') ? undefined : step.id,
       recipeId: recipeId,
     }));
 
     if (stepPayloads.length > 0) {
-      const { error: stepsError } = await upsertSteps(supabase as Supabase, stepPayloads);
+      const { error: stepsError } = await upsertSteps(stepPayloads);
       if (stepsError) {
         toast.error('Failed to save steps. Please try again.');
         setSaving(false);

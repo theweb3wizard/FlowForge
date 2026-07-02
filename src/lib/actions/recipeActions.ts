@@ -1,9 +1,11 @@
 'use server';
 
-import { createServerClient } from '@/lib/supabase/server';
-import { getRecipeById, updateRecipe, createRecipe } from '@/lib/supabase/recipes';
-import { upsertSteps, getStepsByRecipe } from '@/lib/supabase/recipeSteps';
-import type { Supabase } from '@/lib/supabase/databaseClient';
+import { auth } from '@/lib/auth/server';
+import { getRecipeById, updateRecipe, createRecipe } from '@/lib/db/recipes';
+import { upsertSteps, getStepsByRecipe } from '@/lib/db/recipeSteps';
+import { db } from '@/lib/db/index';
+import { recipes } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import type { UpdateRecipePayload, UpsertStepPayload } from '@/types/recipe';
 
 export async function saveRecipeAction(
@@ -11,40 +13,30 @@ export async function saveRecipeAction(
   meta: UpdateRecipePayload,
   steps: UpsertStepPayload[],
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: session } = await auth.getSession();
 
-  if (!user) {
+  if (!session?.user) {
     return { success: false, error: 'You must be signed in to save a recipe.' };
   }
 
-  const { data: recipe, error: fetchError } = await getRecipeById(
-    supabase as Supabase,
-    recipeId,
-  );
+  const { data: recipe, error: fetchError } = await getRecipeById(recipeId);
 
   if (fetchError || !recipe) {
     return { success: false, error: 'Recipe not found.' };
   }
 
-  if (recipe.userId !== user.id) {
+  if (recipe.userId !== session.user.id) {
     return { success: false, error: 'You do not have permission to edit this recipe.' };
   }
 
-  const { error: metaError } = await updateRecipe(
-    supabase as Supabase,
-    recipeId,
-    meta,
-  );
+  const { error: metaError } = await updateRecipe(recipeId, meta);
 
   if (metaError) {
     return { success: false, error: metaError };
   }
 
   if (steps.length > 0) {
-    const { error: stepsError } = await upsertSteps(supabase as Supabase, steps);
+    const { error: stepsError } = await upsertSteps(steps);
     if (stepsError) {
       return { success: false, error: stepsError };
     }
@@ -57,24 +49,19 @@ export async function togglePublicAction(
   recipeId: string,
   isPublic: boolean,
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: session } = await auth.getSession();
 
-  if (!user) {
+  if (!session?.user) {
     return { success: false, error: 'You must be signed in.' };
   }
 
-  const { data: recipe } = await getRecipeById(supabase as Supabase, recipeId);
+  const { data: recipe } = await getRecipeById(recipeId);
 
-  if (!recipe || recipe.userId !== user.id) {
+  if (!recipe || recipe.userId !== session.user.id) {
     return { success: false, error: 'Recipe not found.' };
   }
 
-  const { error } = await updateRecipe(supabase as Supabase, recipeId, {
-    isPublic,
-  });
+  const { error } = await updateRecipe(recipeId, { isPublic });
 
   if (error) {
     return { success: false, error };
@@ -86,37 +73,24 @@ export async function togglePublicAction(
 export async function cloneRecipeAction(
   sourceRecipeId: string,
 ): Promise<{ success: boolean; newRecipeId?: string; error?: string }> {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: session } = await auth.getSession();
 
-  if (!user) {
+  if (!session?.user) {
     return { success: false, error: 'You must be signed in to copy a recipe.' };
   }
 
-  const { data: sourceRecipe } = await getRecipeById(
-    supabase as Supabase,
-    sourceRecipeId,
-  );
+  const { data: sourceRecipe } = await getRecipeById(sourceRecipeId);
 
   if (!sourceRecipe) {
     return { success: false, error: 'Source recipe not found.' };
   }
 
-  const { data: sourceSteps } = await getStepsByRecipe(
-    supabase as Supabase,
-    sourceRecipeId,
-  );
+  const { data: sourceSteps } = await getStepsByRecipe(sourceRecipeId);
 
-  const { data: newRecipe, error: createError } = await createRecipe(
-    supabase as Supabase,
-    user.id,
-    {
-      name: `Copy of ${sourceRecipe.name}`,
-      description: sourceRecipe.description ?? undefined,
-    },
-  );
+  const { data: newRecipe, error: createError } = await createRecipe(session.user.id, {
+    name: `Copy of ${sourceRecipe.name}`,
+    description: sourceRecipe.description ?? undefined,
+  });
 
   if (createError || !newRecipe) {
     return { success: false, error: createError ?? 'Failed to create recipe.' };
@@ -136,7 +110,7 @@ export async function cloneRecipeAction(
       constructorParams: step.constructorParams,
     }));
 
-    const { error: stepsError } = await upsertSteps(supabase as Supabase, clonedSteps);
+    const { error: stepsError } = await upsertSteps(clonedSteps);
     if (stepsError) {
       return { success: false, error: stepsError };
     }
@@ -151,30 +125,26 @@ export async function createRecipeFromPlaygroundAction(
   abi: unknown[],
   bytecode: string | null,
 ): Promise<{ success: boolean; recipeId?: string; error?: string }> {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: session } = await auth.getSession();
 
-  if (!user) {
+  if (!session?.user) {
     return { success: false, error: 'You must be signed in.' };
   }
 
-  const { data: recipe, error: createError } = await createRecipe(
-    supabase as Supabase,
-    user.id,
-    { name, description: 'Created from Playground' },
-  );
+  const { data: recipe, error: createError } = await createRecipe(session.user.id, {
+    name,
+    description: 'Created from Playground',
+  });
 
   if (createError || !recipe) {
     return { success: false, error: createError ?? 'Failed to create recipe.' };
   }
 
-  // Save source code to the recipe
-  await supabase
-    .from('recipes')
-    .update({ source_code: sourceCode })
-    .eq('id', recipe.id);
+  try {
+    await db.update(recipes).set({ sourceCode }).where(eq(recipes.id, recipe.id));
+  } catch (e) {
+    console.error('Failed to save source code:', e);
+  }
 
   if (bytecode && abi.length > 0) {
     const steps: UpsertStepPayload[] = [
@@ -184,7 +154,7 @@ export async function createRecipeFromPlaygroundAction(
         stepType: 'deploy',
         label: name,
         contractName: name,
-        abi,
+        abi: abi as any,
         bytecode,
         targetAddress: null,
         functionName: null,
@@ -192,7 +162,7 @@ export async function createRecipeFromPlaygroundAction(
       },
     ];
 
-    const { error: stepsError } = await upsertSteps(supabase as Supabase, steps);
+    const { error: stepsError } = await upsertSteps(steps);
     if (stepsError) {
       return { success: false, error: stepsError };
     }

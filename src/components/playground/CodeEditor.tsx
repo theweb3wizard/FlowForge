@@ -2,7 +2,6 @@
 
 import dynamic from 'next/dynamic';
 import { useRef, useEffect, useCallback } from 'react';
-import type { editor } from 'monaco-editor';
 import type { CompileError } from '@/types/playground';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
@@ -25,10 +24,10 @@ type CodeEditorProps = {
 };
 
 export function CodeEditor({ code, onChange, isReadOnly, compileErrors }: CodeEditorProps) {
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
 
-  const handleEditorDidMount = useCallback((editor: editor.IStandaloneCodeEditor, monaco: any) => {
+  const handleEditorDidMount = useCallback((editor: any, monaco: any) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
   }, []);

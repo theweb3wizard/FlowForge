@@ -7,7 +7,7 @@ import { injected } from 'wagmi/connectors';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { createClient } from '@/lib/supabase/client';
+import { authClient } from '@/lib/auth/client';
 
 export function WalletSignIn() {
   const router = useRouter();
@@ -32,31 +32,16 @@ export function WalletSignIn() {
       setIsAuthenticating(true);
 
       try {
-        const supabase = createClient();
+        // Use Neon Auth to sign in — currently redirects to sign-in page.
+        // For full SIWE support, a custom Better Auth plugin would be needed.
+        const { data: session } = await authClient.getSession();
 
-        // Future migration path: replace anonymous auth with full SIWE.
-        const { error: signInError } = await supabase.auth.signInAnonymously();
-
-        if (signInError) {
-          console.error('Supabase sign-in failed:', signInError);
-          toast.error('Authentication failed. Please try again.');
-          hasAuthenticatedRef.current = false;
-          return;
+        if (session?.user) {
+          router.push('/dashboard');
+          router.refresh();
+        } else {
+          router.push('/auth/sign-in');
         }
-
-        const { error: updateError } = await supabase.auth.updateUser({
-          data: { wallet_address: address },
-        });
-
-        if (updateError) {
-          console.error('Supabase user update failed:', updateError);
-          toast.error('Authentication failed. Please try again.');
-          hasAuthenticatedRef.current = false;
-          return;
-        }
-
-        router.push('/dashboard');
-        router.refresh();
       } catch (authError) {
         console.error('Authentication error:', authError);
         toast.error('Authentication failed. Please try again.');

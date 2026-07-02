@@ -1,40 +1,16 @@
-import { createServerClient } from '@/lib/supabase/server';
-import { getRecipesByUser } from '@/lib/supabase/recipes';
-import { getStepsByRecipe } from '@/lib/supabase/recipeSteps';
-import type { Supabase } from '@/lib/supabase/databaseClient';
+import { auth } from '@/lib/auth/server';
+import { getRecipesByUser, getStepCountsForRecipes } from '@/lib/db/recipes';
 import { CreateRecipeDialog } from '@/components/recipe/CreateRecipeDialog';
 import { RecipeList } from '@/components/recipe/RecipeList';
-import type { Recipe } from '@/types/recipe';
-
-async function buildStepCounts(
-  recipes: Recipe[],
-  supabase: Supabase,
-): Promise<Record<string, number>> {
-  const counts: Record<string, number> = {};
-
-  await Promise.all(
-    recipes.map(async (recipe) => {
-      const { data: steps } = await getStepsByRecipe(supabase, recipe.id);
-      counts[recipe.id] = steps?.length ?? 0;
-    }),
-  );
-
-  return counts;
-}
 
 export default async function DashboardPage() {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: session } = await auth.getSession();
+  const userId = session?.user?.id ?? '';
 
-  const { data: recipes, error } = await getRecipesByUser(
-    supabase as Supabase,
-    user?.id ?? '',
-  );
+  const { data: recipes, error } = await getRecipesByUser(userId);
 
   const recipeList = recipes ?? [];
-  const stepCounts = await buildStepCounts(recipeList, supabase as Supabase);
+  const stepCounts = await getStepCountsForRecipes(recipeList);
 
   return (
     <div className="space-y-8">

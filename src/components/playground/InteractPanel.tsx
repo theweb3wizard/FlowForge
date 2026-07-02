@@ -45,7 +45,7 @@ function ReadFunctionCard({ fn, abi, address }: { fn: AbiFunction; abi: Abi; add
     args: fn.inputs.length > 0
       ? fn.inputs.map((inp) => {
           const val = args[inp.name] ?? '';
-          if (inp.type === 'uint256' || inp.type.startsWith('uint')) return val ? BigInt(val) : 0n;
+          if (inp.type === 'uint256' || inp.type.startsWith('uint')) return val ? BigInt(val) : BigInt(0);
           if (inp.type === 'bool') return val === 'true';
           return val;
         })

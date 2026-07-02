@@ -13,8 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { createClient } from '@/lib/supabase/client';
-import { deleteRecipe } from '@/lib/supabase/recipes';
+import { deleteRecipe } from '@/lib/db/recipes';
 
 type DeleteRecipeDialogProps = {
   recipeId: string;
@@ -38,8 +37,7 @@ export function DeleteRecipeDialog({
     setIsDeleting(true);
 
     try {
-      const supabase = createClient();
-      const { error } = await deleteRecipe(supabase, recipeId);
+      const { error } = await deleteRecipe(recipeId);
 
       if (error) {
         toast.error(error);

@@ -1,15 +1,14 @@
 import { NextRequest } from 'next/server';
 import { generateText } from '@/lib/ai/openrouter';
 import { EXPLAIN_SYSTEM_PROMPT } from '@/lib/ai/prompts';
-import { createServerClient } from '@/lib/supabase/server';
+import { auth } from '@/lib/auth/server';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
-  const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: session } = await auth.getSession();
 
-  if (!user) {
+  if (!session?.user) {
     return Response.json({ error: 'Authentication required.' }, { status: 401 });
   }
 

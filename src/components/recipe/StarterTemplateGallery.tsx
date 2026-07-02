@@ -13,9 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { createClient } from '@/lib/supabase/client';
-import { createRecipe } from '@/lib/supabase/recipes';
-import { upsertSteps } from '@/lib/supabase/recipeSteps';
+import { createRecipe } from '@/lib/db/recipes';
+import { upsertSteps } from '@/lib/db/recipeSteps';
 import { STARTER_TEMPLATES, type StarterTemplate } from '@/config/starterTemplates';
 import type { UpsertStepPayload } from '@/types/recipe';
 
@@ -27,20 +26,17 @@ export function StarterTemplateGallery() {
     setLoadingId(template.id);
 
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { authClient } = await import('@/lib/auth/client');
+      const { data: session } = await authClient.getSession();
 
-      if (!user) {
+      if (!session?.user) {
         toast.error('You must be signed in to use a template.');
         setLoadingId(null);
         return;
       }
 
       const { data: recipe, error: recipeError } = await createRecipe(
-        supabase,
-        user.id,
+        session.user.id,
         {
           name: template.name,
           description: template.description,
@@ -57,10 +53,9 @@ export function StarterTemplateGallery() {
         const stepPayloads: UpsertStepPayload[] = template.steps.map((step) => ({
           ...step,
           recipeId: recipe.id,
-          // No id — Supabase will generate new UUIDs on insert
         }));
 
-        const { error: stepsError } = await upsertSteps(supabase, stepPayloads);
+        const { error: stepsError } = await upsertSteps(stepPayloads);
 
         if (stepsError) {
           toast.error('Template loaded but steps failed to save. Please try again.');

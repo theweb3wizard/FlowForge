@@ -27,8 +27,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { createClient } from '@/lib/supabase/client';
-import { createRecipe } from '@/lib/supabase/recipes';
+import { createRecipe } from '@/lib/db/recipes';
 
 const createRecipeSchema = z.object({
   name: z.string().min(1, 'Recipe name is required').max(100),
@@ -58,17 +57,15 @@ export function CreateRecipeDialog({ trigger }: CreateRecipeDialogProps) {
     setIsSubmitting(true);
 
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { authClient } = await import('@/lib/auth/client');
+      const { data: session } = await authClient.getSession();
 
-      if (!user) {
+      if (!session?.user) {
         form.setError('name', { message: 'You must be signed in to create a recipe.' });
         return;
       }
 
-      const { data, error } = await createRecipe(supabase, user.id, {
+      const { data, error } = await createRecipe(session.user.id, {
         name: values.name,
         description: values.description || undefined,
       });

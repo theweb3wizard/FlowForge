@@ -1,16 +1,15 @@
 import { NextRequest } from 'next/server';
 import { generateJSON } from '@/lib/ai/openrouter';
 import { AUDIT_SYSTEM_PROMPT } from '@/lib/ai/prompts';
-import { createServerClient } from '@/lib/supabase/server';
+import { auth } from '@/lib/auth/server';
 import type { SecurityFinding } from '@/types/playground';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
-  const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: session } = await auth.getSession();
 
-  if (!user) {
+  if (!session?.user) {
     return Response.json({ error: 'Authentication required for security audit.' }, { status: 401 });
   }
 

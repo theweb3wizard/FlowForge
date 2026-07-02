@@ -150,7 +150,7 @@ export async function compileSolidity(
   // Collect all contract names from all source files
   const contractEntries: Array<{ file: string; name: string }> = [];
   for (const [file, contracts] of Object.entries(allContracts)) {
-    for (const name of Object.keys(contracts)) {
+    for (const name of Object.keys(contracts as Record<string, unknown>)) {
       contractEntries.push({ file, name });
     }
   }

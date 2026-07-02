@@ -1,15 +1,13 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { createServerClient } from '@/lib/supabase/server';
-import { getRecipeWithSteps } from '@/lib/supabase/recipes';
-import type { Supabase } from '@/lib/supabase/databaseClient';
+import { auth } from '@/lib/auth/server';
+import { getRecipeWithSteps } from '@/lib/db/recipes';
 import { PublicRecipeView } from '@/components/recipe/PublicRecipeView';
 import { STARTER_TEMPLATES } from '@/config/starterTemplates';
 import type { RecipeWithSteps } from '@/types/recipe';
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const { id } = params;
-  const supabase = await createServerClient();
 
   if (id === 'demo') {
     const demoTemplate = STARTER_TEMPLATES[0];
@@ -32,7 +30,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     };
   }
 
-  const { data: recipe } = await getRecipeWithSteps(supabase as Supabase, id);
+  const { data: recipe } = await getRecipeWithSteps(id);
 
   if (!recipe || !recipe.isPublic) {
     return {
@@ -60,12 +58,8 @@ type SharedRecipePageProps = {
 
 export default async function SharedRecipePage({ params }: SharedRecipePageProps) {
   const { id } = await params;
-  const supabase = await createServerClient();
 
-  // Check auth status (no redirect — this is a public page)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: session } = await auth.getSession();
 
   // Handle the special demo route
   if (id === 'demo') {
@@ -95,15 +89,15 @@ export default async function SharedRecipePage({ params }: SharedRecipePageProps
         <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
           <PublicRecipeView
             recipe={demoRecipe}
-            isAuthenticated={!!user}
+            isAuthenticated={!!session?.user}
           />
         </div>
       </div>
     );
   }
 
-  // Fetch the real recipe — RLS allows reading is_public = true without auth
-  const { data: recipe } = await getRecipeWithSteps(supabase as Supabase, id);
+  // Fetch the real recipe
+  const { data: recipe } = await getRecipeWithSteps(id);
 
   if (!recipe || !recipe.isPublic) {
     notFound();
@@ -114,7 +108,7 @@ export default async function SharedRecipePage({ params }: SharedRecipePageProps
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
         <PublicRecipeView
           recipe={recipe}
-          isAuthenticated={!!user}
+          isAuthenticated={!!session?.user}
         />
       </div>
     </div>

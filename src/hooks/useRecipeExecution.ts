@@ -9,12 +9,13 @@ import {
 } from 'wagmi';
 import { waitForTransactionReceipt } from '@wagmi/core';
 import { wagmiConfig } from '@/config/wagmi';
-import { createClient } from '@/lib/supabase/client';
+import { authClient } from '@/lib/auth/client';
 import {
-  createExecution,
-  finalizeExecution,
-  updateExecutionStepResult,
-} from '@/lib/supabase/executions';
+  createExecutionAction,
+  finalizeExecutionAction,
+  updateExecutionStepResultAction,
+  getLatestExecutionAction,
+} from '@/lib/actions/executionActions';
 import type { SupportedChain } from '@/types/chain';
 import type {
   ExecutionStatus,
@@ -144,16 +145,14 @@ export function useRecipeExecution(
     abortControllerRef.current?.abort();
     cancelledRef.current = true;
 
-    safeSetState(setIsRunning, false);
+    safeSetState<boolean>(setIsRunning, false);
     isRunningRef.current = false;
-    safeSetState(setExecutionStatus, resultsRef.current.length > 0 ? 'partial' : 'failed');
-    safeSetState(setError, 'Wallet was disconnected. Execution stopped.');
-    safeSetState(setCurrentStepOrder, null);
+    safeSetState<ExecutionStatus>(setExecutionStatus, resultsRef.current.length > 0 ? 'partial' : 'failed');
+    safeSetState<string | null>(setError, 'Wallet was disconnected. Execution stopped.');
+    safeSetState<number | null>(setCurrentStepOrder, null);
 
     if (execId) {
-      const supabase = createClient();
-      void finalizeExecution(
-        supabase,
+      void finalizeExecutionAction(
         execId,
         resultsRef.current.length > 0 ? 'partial' : 'failed',
       );
@@ -162,9 +161,7 @@ export function useRecipeExecution(
 
   const persistStepResult = useCallback(
     async (execId: string, stepResult: StepResult) => {
-      const supabase = createClient();
-      const { error: persistError } = await updateExecutionStepResult(
-        supabase,
+      const { error: persistError } = await updateExecutionStepResultAction(
         execId,
         stepResult,
         resultsRef.current,
@@ -200,8 +197,7 @@ export function useRecipeExecution(
 
       await persistStepResult(execId, failedResult);
 
-      const supabase = createClient();
-      await finalizeExecution(supabase, execId, finalStatus);
+      await finalizeExecutionAction(execId, finalStatus);
 
       if (mountedRef.current) {
         setExecutionStatus(finalStatus);
@@ -237,31 +233,18 @@ export function useRecipeExecution(
     isRunningRef.current = true;
     if (mountedRef.current) setExecutionStatus('running');
 
-    // Partial resume: load prior successful results
     const effectiveResumeFrom = resumeFrom ?? 0;
     let initialResults: StepResult[] = [];
     if (effectiveResumeFrom > 0) {
       try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: existingExecutions } = await supabase
-            .from('executions')
-            .select('*')
-            .eq('recipe_id', recipe.id)
-            .eq('user_id', user.id)
-            .order('started_at', { ascending: false })
-            .limit(1);
-
-          if (existingExecutions?.[0]?.step_results) {
-            initialResults = existingExecutions[0].step_results.filter(
-              (r: StepResult) => r.stepOrder < effectiveResumeFrom && r.status === 'success',
-            );
-          }
+        const { data: latestExec } = await getLatestExecutionAction(recipe.id);
+        if (latestExec?.stepResults) {
+          initialResults = latestExec.stepResults.filter(
+            (r: StepResult) => r.stepOrder < effectiveResumeFrom && r.status === 'success',
+          );
         }
       } catch (err) {
         console.warn('[useRecipeExecution] Failed to load prior results for resume:', err);
-        // Non-fatal: start from scratch
       }
     }
 
@@ -276,9 +259,8 @@ export function useRecipeExecution(
     }
     if (mountedRef.current) setStepStatuses(initialStatuses);
 
-    // Auth check
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: session } = await authClient.getSession();
+    const user = session?.user ?? null;
 
     if (!user) {
       if (mountedRef.current) {
@@ -290,15 +272,11 @@ export function useRecipeExecution(
       return;
     }
 
-    const { data: execution, error: createError } = await createExecution(
-      supabase,
-      user.id,
-      {
-        recipeId: recipe.id,
-        chainId: chain.id,
-        chainName: chain.name,
-      },
-    );
+    const { data: execution, error: createError } = await createExecutionAction({
+      recipeId: recipe.id,
+      chainId: chain.id,
+      chainName: chain.name,
+    });
 
     if (createError || !execution) {
       if (mountedRef.current) {
@@ -323,7 +301,7 @@ export function useRecipeExecution(
         setIsRunning(false);
         setExecutionStatus('failed');
       }
-      await finalizeExecution(supabase, execution.id, 'failed');
+      await finalizeExecutionAction(execution.id, 'failed');
       isRunningRef.current = false;
       return;
     }
@@ -335,7 +313,7 @@ export function useRecipeExecution(
     for (const step of sortedSteps) {
       if (cancelledRef.current || abortControllerRef.current!.signal.aborted) {
         const finalStatus = resultsRef.current.length > 0 ? 'partial' : 'failed';
-        await finalizeExecution(supabase, execution.id, finalStatus);
+        await finalizeExecutionAction(execution.id, finalStatus);
         if (mountedRef.current) {
           setExecutionStatus(finalStatus);
           setError('Execution cancelled.');
@@ -432,9 +410,8 @@ export function useRecipeExecution(
         await persistStepResult(execution.id, stepResult);
       } catch (stepError: any) {
         if (stepError instanceof DOMException && stepError.name === 'AbortError') {
-          // Cancelled — finalize as partial
           const finalStatus = resultsRef.current.length > 0 ? 'partial' : 'failed';
-          await finalizeExecution(supabase, execution.id, finalStatus);
+          await finalizeExecutionAction(execution.id, finalStatus);
           if (mountedRef.current) {
             setExecutionStatus(finalStatus);
             setError('Execution cancelled.');
@@ -452,7 +429,7 @@ export function useRecipeExecution(
       }
     }
 
-    await finalizeExecution(supabase, execution.id, 'success');
+    await finalizeExecutionAction(execution.id, 'success');
     if (mountedRef.current) {
       setExecutionStatus('success');
       setIsRunning(false);

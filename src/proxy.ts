@@ -1,12 +1,20 @@
 import { type NextRequest } from 'next/server';
-import { updateSession } from '@/lib/supabase/middleware';
+import { auth } from '@/lib/auth/server';
 
 export async function proxy(request: NextRequest) {
-  return updateSession(request);
+  const middleware = auth.middleware({ loginUrl: '/auth/sign-in' });
+  const handler = middleware(request);
+  return handler;
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/dashboard/:path*',
+    '/recipe/:path*',
+    '/api/compile',
+    '/api/generate',
+    '/api/explain',
+    '/api/audit',
+    '/api/generate-recipe',
   ],
 };

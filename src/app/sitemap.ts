@@ -1,5 +1,7 @@
 import type { MetadataRoute } from 'next';
-import { createServerClient } from '@/lib/supabase/server';
+import { db } from '@/lib/db/index';
+import { recipes } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://flowforge.app';
 
@@ -38,31 +40,21 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
-    const supabase = await createServerClient();
-
-    // Select all columns to avoid Supabase TypeScript inference issues with partial selects
-    const { data: publicRecipes, error } = await supabase
-      .from('recipes')
-      .select('*')
-      .eq('is_public', true)
-      .order('updated_at', { ascending: false })
+    const rows = await db
+      .select({ id: recipes.id, updatedAt: recipes.updatedAt })
+      .from(recipes)
+      .where(eq(recipes.isPublic, true))
       .limit(500);
 
-    if (error || !publicRecipes) {
-      console.error('Sitemap: failed to fetch public recipes', error);
-      return STATIC_ROUTES;
-    }
-
-    const recipeUrls: MetadataRoute.Sitemap = publicRecipes.map((recipe) => ({
+    const recipeUrls: MetadataRoute.Sitemap = rows.map((recipe) => ({
       url: `${APP_URL}/recipe/shared/${recipe.id}`,
-      lastModified: new Date(recipe.updated_at),
+      lastModified: recipe.updatedAt instanceof Date ? recipe.updatedAt : new Date(recipe.updatedAt ?? Date.now()),
       changeFrequency: 'weekly' as const,
       priority: 0.6,
     }));
 
     return [...STATIC_ROUTES, ...recipeUrls];
   } catch (err) {
-    // If Supabase is unavailable at build time, return only static routes
     console.error('Sitemap: unexpected error', err);
     return STATIC_ROUTES;
   }

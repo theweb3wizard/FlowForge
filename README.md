@@ -12,7 +12,8 @@
 <p align="center">
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-16.2-black?logo=next.js" alt="Next.js" /></a>
   <a href="https://wagmi.sh"><img src="https://img.shields.io/badge/wagmi-v2-blue?logo=ethereum" alt="wagmi" /></a>
-  <a href="https://supabase.com"><img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase" alt="Supabase" /></a>
+  <a href="https://neon.tech"><img src="https://img.shields.io/badge/Neon-PostgreSQL-00E599?logo=postgresql" alt="Neon" /></a>
+  <a href="https://orm.drizzle.team"><img src="https://img.shields.io/badge/Drizzle-ORM-c5f74f?logo=drizzle" alt="Drizzle" /></a>
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript" alt="TypeScript" /></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/status-beta-amber" alt="Beta" />
@@ -49,8 +50,8 @@ FlowForge is a **browser-based smart contract development environment** with two
 - **Variable Passing** — Each step's parameters can reference `step_N.contractAddress` or `step_N.txHash` from any earlier step. Zero copy/paste
 - **Deploy + Interact steps** — Mix contract deployments and function calls in the same workflow
 - **9 EVM chains** — Ethereum Mainnet, Sepolia, Base, Base Sepolia, Polygon, Arbitrum One, Optimism, BNB Smart Chain, BlockDAG Mainnet
-- **Execution engine** — Each step result persisted to Supabase the moment it completes. Partial failure recovery — resume from the failed step
-- **Execution history** — Full table of past runs per recipe. Step-by-step breakdown. CSV export
+- **Execution engine** — Each step result persisted to the database the moment it completes. Partial failure recovery — resume from the failed step
+- **Execution history** — Full table of past runs per recipe. Step-by-step breakdown
 
 ### For Teams
 
@@ -60,7 +61,7 @@ FlowForge is a **browser-based smart contract development environment** with two
 
 ### For Builders
 
-- **Dark, premium UI** — Built for developers. Monospace fonts. Colour-coded states. FlowForge-dark Monaco theme
+- **Dark + Light premium UI** — Built for developers. Warm industrial palette with light/dark mode toggle. Instrument Sans + Plus Jakarta Sans typography
 - **No wallet lock-in** — Works with MetaMask, Phantom (EVM mode), Rabby, and any injected wallet
 - **100% Free & Open Source** — No paywalls, no limits. MIT licensed
 
@@ -71,11 +72,13 @@ FlowForge is a **browser-based smart contract development environment** with two
 | Layer | Technology | Why |
 |-------|-----------|-----|
 | Framework | **Next.js 16** (App Router) | Server Components + Client Components. Turbopack for HMR |
-| Language | **TypeScript 5** (strict) | No `any`. Every type explicit |
-| Styling | **Tailwind CSS + shadcn/ui** | Utility-first CSS. Dark-only theme via CSS variables |
+| Language | **TypeScript 5** (strict) | Full type safety with strict mode |
+| Styling | **Tailwind CSS + shadcn/ui** | Utility-first CSS. Light + dark themes via CSS variables |
 | Builder state | **Zustand** | Flat, minimal store for recipe builder UI |
-| Server state | **TanStack Query v5** | Auto-caching, background refetch for Supabase data |
-| Database | **Supabase (PostgreSQL)** | RLS on all tables. Anonymous + wallet auth |
+| Server state | **TanStack Query v5** | Auto-caching, background refetch |
+| Database | **Neon (Serverless Postgres)** | Scale-to-zero, branching, connection pooling |
+| ORM | **Drizzle** | Type-safe queries, schema-first, lightweight |
+| Auth | **Neon Auth** (Better Auth) | Cookie-based sessions, wallet address as identity |
 | Wallet | **wagmi v2 + viem** | Type-safe EVM interactions. No ethers.js |
 | AI | **OpenRouter** (free-tier models) | Sequential fallback across free models (DeepSeek, Gemini, Mistral, Llama). 500ms backoff, 45s timeout |
 | Compiler | **solc-js** (server-side) | No WASM download in browser. OZ imports resolved from `node_modules` |
@@ -117,7 +120,7 @@ FlowForge is a **browser-based smart contract development environment** with two
 │  │  │  1. Resolve params (replace variable refs)         ││       │
 │  │  │  2. deployContractAsync / writeContractAsync        ││       │
 │  │  │  3. Wait for receipt (Promise.race with timeout)   ││       │
-│  │  │  4. Persist result to Supabase (per-step)          ││       │
+│  │  │  4. Persist result to DB (per-step)                ││       │
 │  │  └────────────────────────────────────────────────────┘│       │
 │  └────────────────────────┬───────────────────────────────┘       │
 │                           │                                        │
@@ -129,61 +132,16 @@ FlowForge is a **browser-based smart contract development environment** with two
             ┌──────────────┴──────────────┐
             ▼                              ▼
 ┌────────────────────────┐  ┌──────────────────────────────┐
-│   EVM Network           │  │   Supabase (PostgreSQL)       │
+│   EVM Network           │  │   Neon Postgres (via Drizzle) │
 │   (user's wallet        │  │                               │
 │    RPC endpoint)        │  │  recipes, recipe_steps        │
 │                         │  │  executions (step_results[])  │
 │  Sepolia / Base /       │  │  deployments                  │
 │  Mainnet / etc.         │  │  generation_log (AI quota)    │
 └────────────────────────┘  │                               │
-                            │  RLS: users own their data    │
+                            │  Auth: Neon Auth (cookies)    │
                             └──────────────────────────────┘
 ```
-
-**Key design decisions:**
-- **No backend RPC** — all on-chain calls go through the user's own wallet
-- **Compile server-side** — solc-js runs in Next.js API routes (Node.js only), avoiding WASM download in browser
-- **Pattern-library RAG over fine-tuning** — ~20 curated Solidity templates + keyword retriever (<100ms) injected as few-shot examples into the generation prompt. No model training required
-- **Agentic compile-fix loop** — 3 attempts max. First compiles immediately, only feeds errors on subsequent attempts
-- **AbortController in execution engine** — cancels in-flight transactions on user abort/wallet disconnect. All completed steps already persisted
-
----
-
-## Database Schema
-
-Updated with playground support:
-
-```sql
--- Tables from v1
-recipes (id, user_id, name, description, is_public, created_at, updated_at)
-recipe_steps (id, recipe_id, step_order, step_type, label, abi, bytecode, ...)
-executions (id, recipe_id, user_id, chain_id, status, step_results, ...)
-
--- New playground tables
-deployments (
-  id           uuid PRIMARY KEY,
-  user_id      uuid REFERENCES auth.users,
-  recipe_id    uuid REFERENCES recipes,     -- nullable — direct deploy from playground
-  contract_address text NOT NULL,
-  chain_id     integer NOT NULL,
-  tx_hash      text NOT NULL,
-  abi          jsonb,
-  metadata     jsonb,
-  created_at   timestamptz
-)
-
-generation_log (
-  id           uuid PRIMARY KEY,
-  user_id      uuid REFERENCES auth.users,
-  prompt       text NOT NULL,
-  model        text NOT NULL,
-  tokens_in    integer,
-  tokens_out   integer,
-  created_at   timestamptz DEFAULT now()
-)
-```
-
-RLS policies: users can CRUD their own data. Public recipes readable by anyone.
 
 ---
 
@@ -193,7 +151,7 @@ RLS policies: users can CRUD their own data. Public recipes readable by anyone.
 
 - Node.js 18+
 - A browser wallet (MetaMask, Phantom, Rabby)
-- A free [Supabase](https://supabase.com) account
+- A free [Neon](https://neon.tech) account (includes a free Postgres instance)
 - An [OpenRouter API key](https://openrouter.ai/keys) (free tier)
 - Sepolia ETH for testing
 
@@ -211,23 +169,15 @@ npm install
 cp .env.example .env.local
 ```
 
-Edit `.env.local`:
+Edit `.env.local` with your Neon database URL and auth credentials (found in your Neon project dashboard).
 
-```env
-# Supabase (required)
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+### 3. Push the database schema
 
-# OpenRouter (required for AI features)
-OPENROUTER_API_KEY=sk-or-v1-your-key
-
-# App URL
-NEXT_PUBLIC_APP_URL=http://localhost:9002
+```bash
+npx drizzle-kit push
 ```
 
-### 3. Apply the database schema
-
-Run `database/schema.sql` and `database/migration-001-playground.sql` in your Supabase SQL Editor.
+This creates all tables (recipes, recipe_steps, executions, deployments, generation_log) in your Neon Postgres database.
 
 ### 4. Run the dev server
 
@@ -264,52 +214,46 @@ src/
 │   └── page.tsx                  # Landing page
 ├── components/
 │   ├── playground/               # Playground UI components
-│   │   ├── AIPromptPanel.tsx     # AI prompt input + template selector
-│   │   ├── CodeEditor.tsx        # Monaco Editor wrapper
-│   │   ├── CompileConsole.tsx    # Compile output + audit results
-│   │   ├── InteractPanel.tsx     # Contract interaction (read/write)
-│   │   └── DeployPanel.tsx       # Deploy wizard (3-step)
 │   ├── execution/                # Execution UI
 │   ├── recipe/                   # RecipeCard, TemplateGallery
 │   ├── pricing/                  # PricingCard
-│   ├── common/                   # ConnectWalletButton
+│   ├── common/                   # ConnectWalletButton, ThemeToggle
 │   ├── layout/                   # AppNav, AppShell, Providers
-│   └── three/                    # 3D hero components
+│   ├── three/                    # 3D hero components
+│   └── ui/                       # shadcn/ui primitives
 ├── lib/
-│   ├── ai/                       # AI integration
-│   │   ├── openrouter.ts         # OpenRouter client (fallback models)
-│   │   ├── prompts.ts            # All system prompts (GENERATE, FIX, AUDIT, EXPLAIN, RECIPE)
-│   │   └── patterns/             # Solidity pattern library (RAG)
-│   │       ├── templates.ts      # 12+ verified contract templates
-│   │       ├── retriever.ts      # Keyword-based pattern matcher
-│   │       └── index.ts
-│   ├── compiler/
-│   │   └── solc.ts               # solc-js wrapper (OZ import resolution, Windows paths)
-│   ├── supabase/                 # Typed client, server client, DAL
-│   └── actions/
-│       └── recipeActions.ts      # Server Actions
+│   ├── ai/                       # AI integration (OpenRouter, prompts, patterns)
+│   ├── compiler/                 # solc-js wrapper
+│   ├── db/                       # Drizzle schema, client, DAL (recipes, recipeSteps, executions)
+│   ├── auth/                     # Neon Auth (server + client)
+│   ├── actions/                  # Server Actions (recipeActions, executionActions)
+│   ├── abi/                      # ABI parsing utilities
+│   ├── env.ts                    # Zod env validation
+│   └── utils.ts                  # cn() helper
 ├── hooks/
 │   └── useRecipeExecution.ts     # Execution engine (AbortController, partial resume)
 ├── config/
 │   ├── chains.ts                 # 9 supported chains
 │   └── wagmi.ts                  # wagmi config
+├── stores/
+│   └── recipeBuilderStore.ts     # Zustand builder state
 ├── types/
-│   ├── playground.ts             # Playground types (CompileResult, SecurityFinding, etc.)
-│   └── recipe.ts, execution.ts, chain.ts
+│   └── ...                       # Shared TypeScript types
 └── utils/
-    └── formatExecutionError.ts   # Human-readable error messages (9+ error types)
+    └── ...                       # encodeStepArgs, formatExecutionError, etc.
 ```
 
 ---
 
-## Pattern Library
+## Database Schema
 
-The AI code generator is backed by a curated library of verified Solidity contract templates. When you describe a contract, the system matches your prompt against template keywords and injects the best-matching templates as few-shot examples.
+Managed via Drizzle ORM (`src/lib/db/schema.ts`). Five tables:
 
-**Available templates:**
-ERC-20, ERC-721, Multisig Wallet, Staking, Vesting, ERC-1155, Timelock Controller, Clone Factory, Crowdsale, DAO/Voting, Lending Pool, Payment Splitter
-
-Adding a new template: add to `src/lib/ai/patterns/templates.ts` and update the keywords in the retriever. No embeddings, no API calls — pure keyword scoring in <100ms.
+- **recipes** — User-defined deployment workflows
+- **recipe_steps** — Ordered actions within a recipe (deploy or interact)
+- **executions** — Per-run record with persisted step results
+- **deployments** — Deployed contract tracking (playground deploys)
+- **generation_log** — AI usage tracking
 
 ---
 
@@ -332,8 +276,8 @@ Adding a new template: add to `src/lib/ai/patterns/templates.ts` and update the 
 ## Security Notes
 
 - **No private keys** — FlowForge never touches your private keys. All transactions signed by your wallet
-- **Row Level Security** — Every Supabase table has RLS enabled
-- **Server Actions authenticated** — All write operations verify the Supabase session server-side
+- **Neon Auth sessions** — Cookie-based auth with server-side session validation
+- **Server Actions authenticated** — All write operations verify the session server-side
 - **Open source** — MIT licensed. Fully transparent codebase
 - **Env validation** — `src/lib/env.ts` validates all required env vars at startup using Zod
 
@@ -343,7 +287,7 @@ Adding a new template: add to `src/lib/ai/patterns/templates.ts` and update the 
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feat/your-feature`
-3. Follow code conventions — no `any` types, no ethers.js, no inline styles
+3. Follow code conventions — no `ethers.js`, no inline styles, prefer type safety
 4. Commit: `git commit -m 'feat: description'`
 5. Push and open a PR against `main`
 

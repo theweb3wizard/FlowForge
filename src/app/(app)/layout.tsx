@@ -1,18 +1,15 @@
 import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/layout/AppShell';
-import { createServerClient } from '@/lib/supabase/server';
+import { auth } from '@/lib/auth/server';
 
 export default async function AuthenticatedLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: session } = await auth.getSession();
 
-  if (!user) {
+  if (!session?.user) {
     redirect('/sign-in');
   }
 

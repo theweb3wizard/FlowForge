@@ -185,6 +185,7 @@ export function HowItWorks3D() {
                       count={2}
                       array={new Float32Array([-1.7, 0, 0, 1.7, 0, 0])}
                       itemSize={3}
+                      args={[new Float32Array([-1.7, 0, 0, 1.7, 0, 0]), 3]}
                     />
                   </bufferGeometry>
                   <lineBasicMaterial color="#22d3ee" transparent opacity={0.3} />

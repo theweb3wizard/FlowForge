@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
-import { createServerClient } from '@/lib/supabase/server';
-import { getRecipeWithSteps } from '@/lib/supabase/recipes';
-import type { Supabase } from '@/lib/supabase/databaseClient';
+import { auth } from '@/lib/auth/server';
+import { getRecipeWithSteps } from '@/lib/db/recipes';
 import { BuilderPage } from '@/components/builder/BuilderPage';
 
 type BuilderPageProps = {
@@ -10,24 +9,19 @@ type BuilderPageProps = {
 
 export default async function RecipeBuilderPage({ params }: BuilderPageProps) {
   const { id } = await params;
-  const supabase = await createServerClient();
+  const { data: session } = await auth.getSession();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (!session?.user) {
     notFound();
   }
 
-  const { data: recipe } = await getRecipeWithSteps(supabase as Supabase, id);
+  const { data: recipe } = await getRecipeWithSteps(id);
 
   if (!recipe) {
     notFound();
   }
 
-  // Verify ownership — RLS also enforces this, but we surface notFound cleanly
-  if (recipe.userId !== user.id) {
+  if (recipe.userId !== session.user.id) {
     notFound();
   }
 

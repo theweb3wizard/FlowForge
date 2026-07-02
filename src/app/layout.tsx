@@ -1,25 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import { Providers } from '@/components/layout/Providers';
 import { Footer } from '@/components/common/Footer';
-import { cn } from '@/lib/utils';
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  display: 'swap',
-  preload: false,
-  fallback: ['system-ui', '-apple-system', 'sans-serif'],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-  display: 'swap',
-  preload: false,
-  fallback: ['Courier New', 'monospace'],
-});
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://flowforge.app';
 
@@ -100,11 +83,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0A0A0A',
-  colorScheme: 'dark',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f5f3ef' },
+    { media: '(prefers-color-scheme: dark)', color: '#0d0d0d' },
+  ],
+  colorScheme: 'light dark',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({
@@ -113,14 +99,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body
-        className={cn(
-          'bg-background font-sans text-foreground antialiased',
-          inter.variable,
-          jetbrainsMono.variable,
-        )}
-      >
+    <html lang="en" suppressHydrationWarning>
+      <Script id="theme-persistence" strategy="beforeInteractive">
+        {`
+          (function() {
+            try {
+              var theme = localStorage.getItem('flowforge-theme');
+              if (theme === 'light' || theme === 'dark') {
+                document.documentElement.classList.add(theme);
+              }
+            } catch (e) {}
+          })();
+        `}
+      </Script>
+      <body className="bg-background text-foreground antialiased">
         <Providers>{children}</Providers>
         <Footer />
       </body>

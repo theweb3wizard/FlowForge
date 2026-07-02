@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { ConnectWalletButton } from '@/components/common/ConnectWalletButton';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
 import { cn } from '@/lib/utils';
 import { Menu, X } from 'lucide-react';
 
@@ -52,6 +53,7 @@ export function AppNav() {
           </nav>
         </div>
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <div className="hidden sm:block">
             <ConnectWalletButton />
           </div>

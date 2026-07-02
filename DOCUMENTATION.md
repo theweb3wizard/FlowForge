@@ -1,8 +1,8 @@
 # FlowForge — Technical Documentation
 
-**Version:** 2.0 (Production Rebuild)
+**Version:** 3.0 (Neon Migration)
 **Author:** The Web3 Wizard (Khalid)
-**Stack:** Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui · wagmi v2 · viem · Zustand · TanStack Query v5 · Supabase
+**Stack:** Next.js 16 · TypeScript · Tailwind CSS · shadcn/ui · wagmi v2 · viem · Zustand · TanStack Query v5 · Neon Postgres · Drizzle ORM · Neon Auth
 
 ---
 
@@ -10,7 +10,7 @@
 
 1. [Product Overview](#1-product-overview)
 2. [Architecture](#2-architecture)
-3. [Database Schema & Security](#3-database-schema--security)
+3. [Database Schema & Access](#3-database-schema--access)
 4. [Execution Engine](#4-execution-engine)
 5. [Recipe Builder State Management](#5-recipe-builder-state-management)
 6. [ABI Utilities & Variable Resolution](#6-abi-utilities--variable-resolution)
@@ -43,10 +43,10 @@ FlowForge solves it visually. You build a **Recipe** — an ordered list of step
 
 A Next.js 16 full-stack web application that:
 
-1. Persists recipe configurations (steps, ABIs, bytecodes, parameter bindings) in Supabase
+1. Persists recipe configurations (steps, ABIs, bytecodes, parameter bindings) in Neon Postgres via Drizzle ORM
 2. Provides a drag-and-drop visual builder with real-time state via Zustand
 3. Executes recipes through a client-side React hook that calls wagmi's `deployContractAsync` / `writeContractAsync` in sequence
-4. Persists each step result to Supabase immediately upon completion
+4. Persists each step result to Neon immediately upon completion
 5. Surfaces execution state in real-time through React state derived from the hook
 
 ### What it is NOT
@@ -65,7 +65,7 @@ A Next.js 16 full-stack web application that:
 ```
 Browser
 ├── Next.js App Router (RSC + Client Components)
-│   ├── Server Components: data fetching via Supabase server client
+│   ├── Server Components: data fetching via Drizzle (server-only)
 │   ├── Client Components: wallet interaction, builder UI, execution UI
 │   └── Server Actions: authenticated write operations
 │
@@ -77,14 +77,15 @@ Browser
 │   ├── useWriteContract → writeContractAsync
 │   └── useSwitchChain → switchChainAsync
 │
-└── Supabase JS client (browser)
-    └── All reads/writes from client components
+└── Neon Auth client (browser)
+    └── Session management via cookies
 
-Supabase (PostgreSQL)
+Neon Postgres (via Drizzle ORM)
 ├── recipes table
 ├── recipe_steps table
 ├── executions table
-└── RLS policies on all tables
+├── deployments table
+└── generation_log table
 
 EVM Networks (user's wallet RPC)
 └── The user's wallet is the only signer — FlowForge has no server-side signing
@@ -96,11 +97,12 @@ EVM Networks (user's wallet RPC)
 Browser → GET /recipe/[id]/builder
   │
   ├── (app)/layout.tsx [Server Component]
-  │     └── Checks Supabase session → redirect /sign-in if unauthenticated
+  │     └── Checks Neon Auth session → redirect /sign-in if unauthenticated
   │
   ├── recipe/[id]/builder/page.tsx [Server Component]
-  │     ├── createServerClient() — Supabase server client with cookie auth
-  │     ├── getRecipeWithSteps(supabase, id) — single round-trip with nested select
+  │     ├── getSession() — Neon Auth server cookie session
+  │     ├── getUser() → userId
+  │     ├── db.query.recipes.findFirst(...) — Drizzle query with steps eager-loaded
   │     └── Verifies recipe.userId === user.id → notFound() if mismatch
   │
   └── BuilderPage.tsx [Client Component]
@@ -122,8 +124,8 @@ User clicks "Run Recipe"
   └── ExecutionProgress mounts [Client Component]
         └── useEffect on mount → executeRecipe()
               │
-              ├── supabase.auth.getUser() — verify session
-              ├── createExecution(supabase, userId, {recipeId, chainId, chainName})
+              ├── getSession() — verify session via Server Action
+              ├── createExecution(...) — insert via Drizzle Server Action
               ├── switchChainAsync({chainId}) — switch wallet to target network
               │
               └── for each step (sorted by stepOrder):
@@ -136,123 +138,116 @@ User clicks "Run Recipe"
                     │     writeContractAsync({address, abi, functionName, args, chainId})
                     │     waitForTransactionReceipt(...)
                     ├── On success:
-                    │     updateExecutionStepResult(supabase, executionId, stepResult, current)
+                    │     updateExecutionStepResult(executionId, stepResult, current)
                     └── On failure:
-                          finalizeExecution(supabase, executionId, 'partial'|'failed')
+                          finalizeExecution(executionId, 'partial'|'failed')
                           halt — do not continue to next step
 ```
 
 ---
 
-## 3. Database Schema & Security
+## 3. Database Schema & Access
 
-### Tables
+### Tables (defined in Drizzle ORM — `src/lib/db/schema.ts`)
 
-```sql
--- Recipes: user-defined deployment workflows
-CREATE TABLE recipes (
-  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  name        text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 100),
-  description text CHECK (char_length(description) <= 500),
-  is_public   boolean NOT NULL DEFAULT false,
-  created_at  timestamptz NOT NULL DEFAULT now(),
-  updated_at  timestamptz NOT NULL DEFAULT now()
-);
+```typescript
+// Five tables managed via Drizzle schema:
 
--- Steps: ordered actions within a recipe
-CREATE TABLE recipe_steps (
-  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  recipe_id         uuid NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
-  step_order        integer NOT NULL CHECK (step_order >= 0),
-  step_type         text NOT NULL CHECK (step_type IN ('deploy', 'interact')),
-  label             text NOT NULL CHECK (char_length(label) BETWEEN 1 AND 80),
-  contract_name     text,
-  abi               jsonb NOT NULL DEFAULT '[]',
-  bytecode          text,           -- nullable; deploy steps only
-  target_address    text,           -- nullable; interact steps; supports ${step_N.contractAddress}
-  function_name     text,           -- nullable; interact steps only
-  constructor_params jsonb NOT NULL DEFAULT '[]',  -- [{name,type,value,isVariable,variableRef}]
-  UNIQUE (recipe_id, step_order)
-);
+recipes — User-defined deployment workflows
+├── id: uuid (PK, default gen_random_uuid())
+├── userId: text NOT NULL (Neon Auth user ID)
+├── name: text NOT NULL
+├── description: text
+├── isPublic: boolean NOT NULL DEFAULT false
+├── createdAt: timestamp NOT NULL DEFAULT now()
+└── updatedAt: timestamp NOT NULL DEFAULT now()
 
--- Executions: per-run record with persisted step results
-CREATE TABLE executions (
-  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  recipe_id    uuid NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
-  user_id      uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  chain_id     integer NOT NULL,
-  chain_name   text NOT NULL,
-  status       text NOT NULL DEFAULT 'pending'
-                CHECK (status IN ('pending','running','partial','success','failed')),
-  step_results jsonb NOT NULL DEFAULT '[]',
-  started_at   timestamptz NOT NULL DEFAULT now(),
-  completed_at timestamptz
-);
+recipe_steps — Ordered actions within a recipe
+├── id: uuid (PK)
+├── recipeId: uuid (FK → recipes, CASCADE DELETE)
+├── stepOrder: integer NOT NULL
+├── stepType: text NOT NULL ('deploy' | 'interact')
+├── label: text NOT NULL
+├── contractName: text
+├── abi: jsonb NOT NULL DEFAULT '[]'
+├── bytecode: text
+├── targetAddress: text
+├── functionName: text
+├── constructorParams: jsonb NOT NULL DEFAULT '[]'
+└── UNIQUE(recipeId, stepOrder)
+
+executions — Per-run record with persisted step results
+├── id: uuid (PK)
+├── recipeId: uuid (FK → recipes, CASCADE DELETE)
+├── userId: text NOT NULL
+├── chainId: integer NOT NULL
+├── chainName: text NOT NULL
+├── status: text NOT NULL DEFAULT 'pending'
+│     CHECK ('pending' | 'running' | 'partial' | 'success' | 'failed')
+├── stepResults: jsonb NOT NULL DEFAULT '[]'
+├── startedAt: timestamp NOT NULL DEFAULT now()
+└── completedAt: timestamp
+
+deployments — Deployed contracts from the playground
+├── id: uuid (PK)
+├── userId: text NOT NULL
+├── recipeId: uuid (nullable — direct deploy from playground)
+├── contractAddress: text NOT NULL
+├── chainId: integer NOT NULL
+├── txHash: text NOT NULL
+├── abi: jsonb
+├── metadata: jsonb
+└── createdAt: timestamp NOT NULL DEFAULT now()
+
+generation_log — AI usage tracking
+├── id: uuid (PK)
+├── userId: text NOT NULL
+├── prompt: text NOT NULL
+├── model: text NOT NULL
+├── tokensIn: integer
+├── tokensOut: integer
+└── createdAt: timestamp NOT NULL DEFAULT now()
 ```
+
+### Data access layer
+
+The Drizzle client is initialized lazily via a Proxy pattern (`src/lib/db/index.ts`) to avoid build-time crashes when `DATABASE_URL` is not set:
+
+```typescript
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import * as schema from './schema';
+
+function createDb() {
+  const sql = neon(process.env.DATABASE_URL!);
+  return drizzle(sql, { schema });
+}
+
+export const db = new Proxy({} as ReturnType<typeof createDb>, {
+  get(_, prop) {
+    if (!_db) _db = createDb();
+    return (_db as any)[prop];
+  },
+});
+```
+
+Data access functions are split by entity:
+
+- `src/lib/db/recipes.ts` — `getRecipesByUser`, `getRecipeWithSteps`, `createRecipe`, `updateRecipe`, `deleteRecipe`
+- `src/lib/db/recipeSteps.ts` — `getStepsByRecipe`, `upsertSteps`, `deleteStep`, `reorderSteps`
+- `src/lib/db/executions.ts` — `createExecution`, `updateExecutionStepResult`, `finalizeExecution`, `getExecutionsByRecipe`, `getExecutionById`
+
+All functions accept a Drizzle `db` instance as the first argument, return `{ data, error }` shaped results, and never throw.
 
 ### Indexes
 
 ```sql
-CREATE INDEX idx_recipes_user_id        ON recipes(user_id);
-CREATE INDEX idx_recipes_is_public      ON recipes(is_public) WHERE is_public = true;
+CREATE INDEX idx_recipes_user_id ON recipes(user_id);
+CREATE INDEX idx_recipes_is_public ON recipes(is_public) WHERE is_public = true;
 CREATE INDEX idx_recipe_steps_recipe_id ON recipe_steps(recipe_id);
-CREATE INDEX idx_recipe_steps_order     ON recipe_steps(recipe_id, step_order);
-CREATE INDEX idx_executions_recipe_id   ON executions(recipe_id);
-CREATE INDEX idx_executions_user_id     ON executions(user_id);
-```
-
-### Row Level Security
-
-```sql
--- recipes
-ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "read own or public" ON recipes FOR SELECT
-  USING (auth.uid() = user_id OR is_public = true);
-
-CREATE POLICY "insert own" ON recipes FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "update own" ON recipes FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "delete own" ON recipes FOR DELETE
-  USING (auth.uid() = user_id);
-
--- recipe_steps (inherits from parent recipe)
-ALTER TABLE recipe_steps ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "read if recipe accessible" ON recipe_steps FOR SELECT
-  USING (EXISTS (
-    SELECT 1 FROM recipes
-    WHERE recipes.id = recipe_steps.recipe_id
-    AND (recipes.user_id = auth.uid() OR recipes.is_public = true)
-  ));
-
--- (INSERT/UPDATE/DELETE policies check recipes.user_id = auth.uid())
-
--- executions
-ALTER TABLE executions ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "own executions only" ON executions FOR ALL
-  USING (auth.uid() = user_id);
-```
-
-### updated_at trigger
-
-```sql
-CREATE OR REPLACE FUNCTION handle_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER recipes_updated_at
-  BEFORE UPDATE ON recipes
-  FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+CREATE INDEX idx_recipe_steps_order ON recipe_steps(recipe_id, step_order);
+CREATE INDEX idx_executions_recipe_id ON executions(recipe_id);
+CREATE INDEX idx_executions_user_id ON executions(user_id);
 ```
 
 ---
@@ -275,16 +270,16 @@ All transactions must be signed by the user's wallet in real time. There is no w
   stepStatuses: Record<number, StepStatus>  // stepOrder → 'pending'|'running'|'success'|'failed'
   completedResults: StepResult[]            // accumulated per-step results
   executionStatus: ExecutionStatus          // overall: 'pending'|'running'|'partial'|'success'|'failed'
-  executionId: string | null                // Supabase execution record ID
+  executionId: string | null                // Neon execution record ID
   error: string | null                      // top-level error if halted
 }
 ```
 
 ### Step result persistence
 
-Every step result is persisted to Supabase **immediately** upon completion via `updateExecutionStepResult`. This is the resume mechanism — if the user closes the browser mid-execution, all completed step results (contract addresses, tx hashes) are already in the database and visible in the execution history.
+Every step result is persisted to Neon **immediately** upon completion via server actions (`updateExecutionStepResult`). This is the resume mechanism — if the user closes the browser mid-execution, all completed step results (contract addresses, tx hashes) are already in the database and visible in the execution history.
 
-Critically: **Supabase persistence failure does NOT halt execution.** The DB write is best-effort. The UI state is the source of truth during a live run. This is intentional — a transient network hiccup shouldn't kill a multi-step deployment that's in the middle of expensive on-chain work.
+Critically: **DB persistence failure does NOT halt execution.** The server action write is best-effort. The UI state is the source of truth during a live run. This is intentional — a transient network hiccup shouldn't kill a multi-step deployment that's in the middle of expensive on-chain work.
 
 ### Wallet disconnect detection
 
@@ -314,16 +309,6 @@ if (message.includes('revert'))        → "Transaction reverted on-chain. Check
 default                                → "Transaction failed. Please check the network and try again."
 ```
 
-### ABI argument encoding
-
-```typescript
-// src/utils/encodeStepArgs.ts
-// Handles: address, bool, string, uint*/int*, bytes*
-// Numeric types are cast to BigInt for viem compatibility
-encodeStepArgValue('uint256', '1000000') → BigInt(1000000)
-encodeStepArgValue('address', '0x...')  → '0x...' as `0x${string}`
-```
-
 ---
 
 ## 5. Recipe Builder State Management
@@ -350,7 +335,7 @@ The recipe builder uses Zustand (`src/stores/recipeBuilderStore.ts`). React Cont
 
 | Action | What it does |
 |--------|-------------|
-| `initializeBuilder(recipe)` | Loads recipe from Supabase into the store on mount |
+| `initializeBuilder(recipe)` | Loads recipe from the database into the store on mount |
 | `addStep(stepType)` | Appends a new step with a `temp_` UUID. Auto-selects it. |
 | `removeStep(stepId)` | Removes step, reindexes all remaining `stepOrder` values |
 | `reorderSteps(newOrder)` | Accepts array of step IDs in new order, reassigns stepOrder 0..N |
@@ -363,9 +348,9 @@ After a drag-and-drop reorder, `hasBrokenVariableRef(step, allSteps)` checks whe
 
 ### Auto-save
 
-`BuilderPage.tsx` runs a `setInterval` every 30 seconds. If `isDirty` is true, it calls `handleSave()` which:
+`BuilderPage.tsx` runs a `setInterval` every 30 seconds. If `isDirty` is true, it calls a Server Action which:
 
-1. Calls `updateRecipe()` with the current meta fields
+1. Calls `updateRecipe()` with the current meta fields via Drizzle
 2. Calls `upsertSteps()` with all steps (new steps have no `id` → INSERT; existing steps have a UUID → UPSERT on conflict)
 
 ---
@@ -407,44 +392,48 @@ resolveTargetAddress(targetAddress: string, completedResults: StepResult[]): str
 // If targetAddress matches ${step_N.contractAddress} → extract ref, call resolveStepParam
 ```
 
-The `getAvailableVariables` function populates the variable picker dropdowns in the builder. It only exposes outputs from steps with `stepOrder < currentStepOrder` — you can never reference a future step.
-
 ---
 
 ## 7. Authentication Flow
 
-FlowForge uses Supabase's anonymous auth with wallet address stored in user metadata. This is a simplified launch pattern — full SIWE (Sign-In with Ethereum) is noted in the code as the migration path.
+FlowForge uses **Neon Auth** (powered by Better Auth) with cookie-based sessions. Wallet address is used as the primary identity.
 
 ```
 User connects wallet (wagmi useConnect)
          │
          ▼
 WalletSignIn.tsx
-  ├── supabase.auth.signInAnonymously()
-  └── supabase.auth.updateUser({ data: { wallet_address: address } })
+  ├── Calls signInViaWallet() → sends wallet address to Neon Auth
+  └── Neon Auth creates/returns user session
          │
          ▼
-Supabase JWT stored in cookie
+Session JWT stored in HTTP-only cookie
          │
          ▼
-Every page load: proxy.ts (Next.js 16 proxy)
-  └── updateSession(request) — refreshes session from cookie
+Every page load: proxy.ts (Next.js 16 middleware)
+  └── auth.middleware() — refreshes session from cookie
          │
          ▼
-Server Components: createServerClient() via @supabase/ssr
-  └── Reads session from Next.js cookies
+Server Components: auth.server.ts
+  └── getSession() — reads cookie, validates session
          │
          ▼
-RLS enforcement: auth.uid() matched against user_id columns
+Route protection: recipes filtered by userId in Drizzle queries
 ```
 
-The `proxy.ts` file (Next.js 16's replacement for `middleware.ts`) runs on every request to keep the Supabase session cookie fresh. This prevents the HTTP 431 "Request Header Too Large" error that accumulates stale session cookies.
+The `proxy.ts` file (Next.js 16's replacement for `middleware.ts`) runs on every request to keep the auth session fresh.
+
+### Auth client and server
+
+- **Server:** `src/lib/auth/server.ts` — lazy-initialized via Proxy, provides `getSession()`, `getUser()`
+- **Client:** `src/lib/auth/client.ts` — client-side auth for wallet sign-in
+- **Middleware proxy:** `src/proxy.ts` — uses lazy `auth.middleware()` to avoid initialization at build time
 
 ---
 
 ## 8. Chain Configuration
 
-All chain configuration is in `src/config/chains.ts`. Chain IDs, explorer URLs, and RPC transports are **never hardcoded anywhere else**. This is enforced by code review — it's an explicit guardrail in `Agent.md`.
+All chain configuration is in `src/config/chains.ts`. Chain IDs, explorer URLs, and RPC transports are **never hardcoded anywhere else**.
 
 ```typescript
 // src/config/chains.ts
@@ -466,55 +455,54 @@ export function getExplorerTxUrl(chain, txHash): string
 export function getExplorerAddressUrl(chain, address): string
 ```
 
-BlockDAG (chain ID 1043) is defined via viem's `defineChain` utility since it's not in viem's built-in chain list.
-
 Wagmi is configured with `http()` transports for all chains — no Alchemy/Infura dependency. The user's wallet provides the RPC connection.
 
 ---
 
 ## 9. Server Actions & Data Access
 
-### Data access layer (`src/lib/supabase/`)
+### Data access via Drizzle (`src/lib/db/`)
 
 All data access functions follow the same contract:
 
 ```typescript
 // Every function:
-// 1. Accepts the Supabase client as first argument (never instantiates its own)
+// 1. Accepts the Drizzle db instance as first argument
 // 2. Returns { data: T | null; error: string | null }
 // 3. Never throws
-// 4. Maps snake_case DB columns to camelCase TypeScript types
-// 5. Logs raw Supabase errors to console, returns human-readable strings to callers
+// 4. Uses lazy-initialized Proxy client (safe at build time)
 
-async function getRecipeWithSteps(client: Supabase, recipeId: string)
+async function getRecipeWithSteps(db: DbInstance, recipeId: string)
   → Promise<{ data: RecipeWithSteps | null; error: string | null }>
 ```
-
-The Supabase type is `SupabaseClient<Database, 'public', any>` — the `any` third generic is intentional and documented. The `@supabase/ssr` server client and the browser client have different third generics that TypeScript complains about without it.
 
 ### Step upsert strategy
 
 `upsertSteps` splits into two operations:
 
 ```typescript
-// Steps without an id (new, or temp_ prefixed) → INSERT (Supabase generates UUID)
+// Steps without an id (new, or temp_ prefixed) → INSERT via Drizzle
 // Steps with a real UUID → UPSERT with onConflict: 'id'
 ```
 
-This is critical. Calling `.upsert()` on rows with `id: undefined` causes a PostgreSQL constraint error because Supabase can't resolve a conflict on a null primary key.
-
-### Server Actions (`src/lib/actions/recipeActions.ts`)
+### Server Actions
 
 ```typescript
-'use server'  // All functions in this file are Server Actions
+'server-only' imports from next — all DB code runs server-side
 
-saveRecipeAction(recipeId, meta, steps)   // Save builder state
-togglePublicAction(recipeId, isPublic)    // Share/unshare recipe
-cloneRecipeAction(sourceRecipeId)         // Copy recipe to current user's account
+recipeActions.ts:
+  saveRecipeAction(recipeId, meta, steps)   // Save builder state
+  togglePublicAction(recipeId, isPublic)    // Share/unshare recipe
+  cloneRecipeAction(sourceRecipeId)         // Copy recipe to current user
+
+executionActions.ts:
+  createExecutionAction(recipeId, chainId, chainName)  // Start execution
+  updateExecutionStepResultAction(executionId, stepResult, currentResults)  // Per-step persist
+  finalizeExecutionAction(executionId, status)  // Mark complete/failed
 ```
 
 All Server Actions:
-1. Call `createServerClient()` to get an authenticated Supabase instance
+1. Call `getSession()` to verify the user is authenticated
 2. Verify `user.id === recipe.userId` before any write operation
 3. Return `{ success: boolean; error?: string }` — never throw
 
@@ -523,14 +511,17 @@ All Server Actions:
 ## 10. Environment Variables
 
 ```bash
-# Required — validated by src/lib/env.ts (Zod) at startup
-NEXT_PUBLIC_SUPABASE_URL=          # Supabase project URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY=     # Supabase anon/public key
-NEXT_PUBLIC_APP_URL=               # Full app URL (http://localhost:9002 for dev)
+# Required — validated by Drizzle client at first DB access
+DATABASE_URL=                   # Neon Postgres connection string
+NEON_AUTH_BASE_URL=             # Neon project base URL (for auth)
+NEON_AUTH_COOKIE_SECRET=        # Cookie signing secret (min 32 chars)
 
+# Required for AI features
+OPENROUTER_API_KEY=             # OpenRouter API key
+
+# App URL
+NEXT_PUBLIC_APP_URL=            # Full app URL (http://localhost:9002 for dev)
 ```
-
-`src/lib/env.ts` validates the first three with Zod on module load. In development, validation failures log a warning but don't crash the server. In production, they throw immediately — misconfigured deployments fail loudly at startup.
 
 ---
 
@@ -546,10 +537,10 @@ npm install
 
 # 3. Environment
 cp .env.example .env.local
-# Fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
-# Set NEXT_PUBLIC_APP_URL=http://localhost:9002
+# Fill in DATABASE_URL, NEON_AUTH_BASE_URL, and NEON_AUTH_COOKIE_SECRET
 
-# 4. Database — run database/schema.sql in Supabase SQL Editor
+# 4. Push database schema
+npx drizzle-kit push
 
 # 5. Dev server
 npm run dev
@@ -557,8 +548,6 @@ npm run dev
 ```
 
 **Important for Windows:** Always use `http://localhost:9002`, not the network IP address. Browser wallets (MetaMask, Phantom) only allow injected connections from `localhost` in development mode.
-
-**If you get HTTP 431:** Clear cookies for localhost:9002 in your browser DevTools (Application → Cookies → Delete All). This error is caused by accumulated stale Supabase session cookies, not a code bug.
 
 ---
 
@@ -571,27 +560,35 @@ npm run dev
 3. Set all environment variables from Section 10
 4. Deploy — Next.js is auto-detected
 
-`vercel.json` configures:
-- Security headers on all routes (X-Frame-Options: DENY, X-Content-Type-Options, etc.)
-- Framework: nextjs
+### Neon checklist
 
-### Supabase checklist
-
-- [ ] Run `database/schema.sql` in the SQL Editor
-- [ ] Confirm RLS enabled on all three tables
-- [ ] Add production domain to Auth → URL Configuration → Allowed Redirect URLs
-- [ ] Note: Supabase admin client (used by webhook) requires `service_role` key, not anon key
+- [ ] Database is created and accessible via `DATABASE_URL`
+- [ ] Schema pushed via `npx drizzle-kit push`
+- [ ] Neon Auth configured with correct redirect URLs
+- [ ] Cookie secret is a long random string
 
 ### robots.txt and sitemap
 
 Both are generated via Next.js Metadata API:
-
 - `robots.ts` allows `/`, `/recipe/shared/*` and disallows `/dashboard`, `/api/*`, `/pricing`, `/recipe/*/builder`
 - `sitemap.ts` includes static routes plus all `is_public = true` recipe URLs
 
 ---
 
 ## 13. Design Decisions & Tradeoffs
+
+### Why Neon + Drizzle over Supabase?
+
+The original codebase used Supabase (Auth + PostgreSQL + RLS). Three factors drove the migration:
+
+1. **Auth simplicity** — Neon Auth provides cookie-based sessions out of the box with Better Auth, eliminating the complex SSR cookie pattern required by `@supabase/ssr`
+2. **Drizzle's type safety** — Drizzle ORM generates fully typed queries from the schema, eliminating the manual duplicate type definitions required by Supabase
+3. **Build-time safety** — Supabase client initialization crashes at build time if env vars are missing. Drizzle's lazy Proxy pattern (`db/index.ts`) defers initialization until first database access, making builds resilient to missing env vars during CI
+4. **Scale-to-zero** — Neon's serverless Postgres scales to zero on inactivity, free tier includes 0.5 GB storage and branching for preview deployments
+
+### Why lazy Proxy for db and auth?
+
+Both `db` and `auth` modules are wrapped in JavaScript Proxies that defer initialization until the first property access. This prevents build-time crashes when environment variables are not set (e.g., during `next build` when DATABASE_URL is only available at runtime).
 
 ### Why Zustand over React Context for builder state?
 
@@ -601,15 +598,16 @@ The recipe builder has a deep component tree: `BuilderPage → StepList → Step
 
 Every step requires a wallet signature from the user in real time. There is no way to automate this server-side. The execution loop waits at each step for the user to approve the MetaMask/Phantom popup. This is not a limitation — it's the correct security model for non-custodial tooling.
 
-### Why only three database tables?
+### Why only five database tables?
 
-The original hackathon codebase had `contract_templates`, `deployments`, `recipe_executions`, `user_contract_templates`, and a `VIEW`. The rebuild reduced this to three tables by:
+The original hackathon codebase had `contract_templates`, `deployments`, `recipe_executions`, `user_contract_templates`, and a `VIEW`. The rebuild reduced this, then expanded slightly for the AI playground:
 
-1. Moving templates to static JSON in `src/config/starterTemplates.ts` (6 pre-built templates, zero DB maintenance)
-2. Eliminating the public deployments gallery (noise for new users, complexity for the system)
-3. Merging execution tracking into `executions.step_results` JSONB instead of a separate table
+1. Templates moved to static JSON in `src/config/starterTemplates.ts` (6 pre-built templates, zero DB maintenance)
+2. `deployments` table kept for playground deploy tracking (lightweight, not a public gallery)
+3. `generation_log` table added for AI usage monitoring and quota management
+4. All execution tracking in `executions.step_results` JSONB instead of a separate table
 
-This makes the schema easier to reason about, RLS policies simpler, and eliminates the N+1 query problem from the template viewer.
+This keeps the schema small, RLS-equivalent checks simple (userId filtering in queries), and eliminates N+1 query problems.
 
 ### Why is ABI parsing deliberately scoped?
 
@@ -622,14 +620,12 @@ No tuple validation, no overload resolution, no struct unwrapping. Users who hit
 
 ### Why viem instead of ethers.js?
 
-ethers.js v5 (which was in the original codebase) uses `BigNumber` instead of native `bigint`, has a 128kb bundle size, and has a fundamentally different API from wagmi v2. viem is wagmi v2's native peer dependency, uses native `bigint`, is tree-shakeable, and has a smaller bundle footprint. The migration was non-negotiable.
+ethers.js v5 uses `BigNumber` instead of native `bigint`, has a 128kb bundle size, and has a fundamentally different API from wagmi v2. viem is wagmi v2's native peer dependency, uses native `bigint`, is tree-shakeable, and has a smaller bundle footprint.
 
-### Why anonymous Supabase auth instead of full SIWE?
+### Why light + dark mode?
 
-SIWE (Sign-In with Ethereum) requires a backend nonce endpoint, a signing step, and a verification step — three round-trips for what should be a one-click flow. For v1 with tight build constraints, `signInAnonymously()` + `updateUser({ wallet_address })` achieves the same result: a unique, authenticated Supabase user identified by wallet address. The migration path to full SIWE is documented in `WalletSignIn.tsx`.
+Forced dark theme is a hallmark of AI-generated "slop" UIs. Adding proper light mode support with warm-neutral colors signals production quality and professionalism to paying clients. The theme toggle persists the user's preference in localStorage with a before-hydration script to prevent flash of unstyled content.
 
 ---
 
 *FlowForge is built and maintained by [The Web3 Wizard (Khalid)](https://github.com/theweb3wizard).*
-*For the product strategy and rebuild rationale, see `Revive.md`.*
-*For the agent execution roadmap used to build this, see `Agent.md`.*

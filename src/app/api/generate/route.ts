@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { generateText } from '@/lib/ai/openrouter';
 import { GENERATE_SYSTEM_PROMPT, FIX_SYSTEM_PROMPT, buildGenerationPrompt } from '@/lib/ai/prompts';
 import { retrievePatterns } from '@/lib/ai/patterns';
-import { createServerClient } from '@/lib/supabase/server';
+import { auth } from '@/lib/auth/server';
 import { checkCompileErrors, compileSolidity } from '@/lib/compiler/solc';
 
 export const runtime = 'nodejs';
@@ -74,9 +74,42 @@ async function runCompileFixLoop(
   return { code, attempts: MAX_FIX_ATTEMPTS, success: false };
 }
 
+async function getUserGenerationCount(userId: string): Promise<number> {
+  try {
+    const { db } = await import('@/lib/db/index');
+    const { generationLog } = await import('@/lib/db/schema');
+    const { count } = await import('drizzle-orm');
+    const { gte } = await import('drizzle-orm');
+    const oneDayAgo = new Date(Date.now() - 86400000);
+    const [result] = await db
+      .select({ count: count() })
+      .from(generationLog)
+      .where(gte(generationLog.generatedAt, oneDayAgo));
+    return result?.count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function getAnonGenerationCount(anonToken: string): Promise<number> {
+  try {
+    const { db } = await import('@/lib/db/index');
+    const { generationLog } = await import('@/lib/db/schema');
+    const { count, eq, gte } = await import('drizzle-orm');
+    const oneDayAgo = new Date(Date.now() - 86400000);
+    const [result] = await db
+      .select({ count: count() })
+      .from(generationLog)
+      .where(gte(generationLog.generatedAt, oneDayAgo));
+    return result?.count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function POST(req: NextRequest) {
-  const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: session } = await auth.getSession();
+  const user = session?.user ?? null;
 
   const anonToken = req.headers.get('x-anon-token');
   let prompt: string;
@@ -93,23 +126,13 @@ export async function POST(req: NextRequest) {
 
   // Quota check
   if (user) {
-    const { count } = await supabase
-      .from('generation_log')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('generated_at', new Date(Date.now() - 86400000).toISOString());
-
-    if (count && count >= 10) {
+    const count = await getUserGenerationCount(user.id);
+    if (count >= 10) {
       return Response.json({ error: 'Daily generation limit reached (10/day).' }, { status: 429 });
     }
   } else if (anonToken) {
-    const { count } = await supabase
-      .from('generation_log')
-      .select('*', { count: 'exact', head: true })
-      .eq('anon_token', anonToken)
-      .gte('generated_at', new Date(Date.now() - 86400000).toISOString());
-
-    if (count && count >= 3) {
+    const count = await getAnonGenerationCount(anonToken);
+    if (count >= 3) {
       return Response.json({ error: 'Anonymous limit reached. Sign up for 10/day.' }, { status: 429 });
     }
   } else {
@@ -125,7 +148,6 @@ export async function POST(req: NextRequest) {
 
       const { code, attempts, success } = await runCompileFixLoop(prompt, send);
 
-      // Send the final clean code (strip progress comments for final output)
       const cleanCode = code
         .replace(/^\/\/ 🤖.*\n?/gm, '')
         .replace(/^\/\/ 🛠️.*\n?/gm, '')
@@ -148,15 +170,20 @@ export async function POST(req: NextRequest) {
 
       // Fire-and-forget log
       if (user || anonToken) {
-        const logData: Record<string, any> = {
-          prompt,
-          model_used: 'openrouter',
-          compiled: success,
-          fix_attempts: attempts,
-        };
-        if (user) logData.user_id = user.id;
-        if (anonToken) logData.anon_token = anonToken;
-        supabase.from('generation_log').insert(logData).then().catch(() => {});
+        try {
+          const { db } = await import('@/lib/db/index');
+          const { generationLog } = await import('@/lib/db/schema');
+          await db.insert(generationLog).values({
+            id: crypto.randomUUID(),
+            userId: user?.id ?? null,
+            anonToken: anonToken ?? null,
+            prompt,
+            tokensUsed: null,
+            modelUsed: 'openrouter',
+            compilationSuccess: success,
+            securityFlags: null,
+          });
+        } catch { /* non-fatal logging failure */ }
       }
 
       try { controller.close(); } catch { /* already closed */ }
