@@ -1,7 +1,6 @@
 'use client';
 
 import { Canvas, type CanvasProps } from '@react-three/fiber';
-import { Environment } from '@react-three/drei';
 
 type Scene3DProps = CanvasProps & {
   withEffects?: boolean;
@@ -20,12 +19,10 @@ export function Scene3D({ children, withEffects = true, ...props }: Scene3DProps
       }}
       {...props}
     >
-      <ambientLight intensity={0.3} />
+      <ambientLight intensity={0.4} />
       <directionalLight position={[5, 5, 5]} intensity={0.8} />
       <directionalLight position={[-5, -5, -5]} intensity={0.3} color="#a855f7" />
       <pointLight position={[0, 0, 0]} intensity={0.5} color="#22d3ee" />
-
-      <Environment preset="city" />
 
       {children}
     </Canvas>

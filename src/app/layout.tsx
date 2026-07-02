@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
 import './globals.css';
 import { Providers } from '@/components/layout/Providers';
 import { Footer } from '@/components/common/Footer';
@@ -100,18 +99,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <Script id="theme-persistence" strategy="beforeInteractive">
-        {`
-          (function() {
-            try {
-              var theme = localStorage.getItem('flowforge-theme');
-              if (theme === 'light' || theme === 'dark') {
-                document.documentElement.classList.add(theme);
-              }
-            } catch (e) {}
-          })();
-        `}
-      </Script>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var e=localStorage.getItem('flowforge-theme');if(e==='light'||e==='dark')document.documentElement.classList.add(e)}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="bg-background text-foreground antialiased">
         <Providers>{children}</Providers>
         <Footer />
